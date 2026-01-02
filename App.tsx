@@ -1,45 +1,41 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React from 'react';
+import { Provider } from 'react-redux';
+import { Platform } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { store } from '@/app/store';
+import RootNavigator from '@/navigation/RootNavigator';
+import IphoneToast from '@/components/IphoneToast';
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+const toastConfig = {
+  success: (props: any) => (
+    <IphoneToast {...props} type="success" />
+  ),
+  error: (props: any) => (
+    <IphoneToast {...props} type="error" />
+  ),
+  info: (props: any) => (
+    <IphoneToast {...props} type="info" />
+  ),
+};
 
+
+
+export default function App() {
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
+    <Provider store={store}>
+      <SafeAreaProvider>
+        <RootNavigator />
+
+        {/* 🔴 THIS MUST EXIST */}
+        <Toast
+          config={toastConfig}
+          position="top"
+          topOffset={Platform.OS === 'android' ? 40 : 55}
+          visibilityTime={3000}
+        />
+      </SafeAreaProvider>
+    </Provider>
   );
 }
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
-
-export default App;
