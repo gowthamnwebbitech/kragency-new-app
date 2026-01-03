@@ -1,12 +1,24 @@
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import LoginScreen from '@/screens/auth/LoginScreen';
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/app/store';
 
-const Stack = createNativeStackNavigator();
+import AppNavigator from './AppNavigator';
+import AuthNavigator from './AuthNavigator';
 
-export default function AuthNavigator() {
+export default function RootNavigator() {
+  const { isAuthenticated, loading } = useSelector(
+    (state: RootState) => state.auth
+  );
+
+  if (loading) {
+    return null;
+  }
+
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login" component={LoginScreen} />
-    </Stack.Navigator>
+    <NavigationContainer>
+      <AppNavigator />
+      {!isAuthenticated && <AuthNavigator />}
+    </NavigationContainer>
   );
 }

@@ -1,43 +1,57 @@
-import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
-import { ENV } from '@/env';
-import { store } from '@/app/store';
+import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { store } from '@/app/store';
+import { ENV } from '@/env';
+import { logout } from '@/features/auth/authSlice';
 
 export const axiosClient = axios.create({
-  baseURL: ENV.API_BASE_URL,
+  baseURL: ENV.API_BASE_URL, 
   timeout: 15000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// Request interceptor: attach token
+/* 🔐 REQUEST INTERCEPTOR */
 axiosClient.interceptors.request.use(
-  async (config: AxiosRequestConfig) => {
-    const token = await AsyncStorage.getItem('authToken') || store.getState().auth.token;
+  async config => {
+    const reduxToken = store.getState().auth.token;
+    const storageToken = await AsyncStorage.getItem('authToken');
+    const token = reduxToken || storageToken;
 
     if (token) {
-      config.headers = { ...config.headers, Authorization: `Bearer ${token}` };
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // ✅ Log the full URL and method
-    console.log('Axios Request:', config.method?.toUpperCase(), config.baseURL + config.url);
+    console.log(
+      '➡️',
+      config.method?.toUpperCase(),
+      `${config.baseURL}${config.url}`
+    );
 
     return config;
   },
   error => Promise.reject(error)
 );
 
-
+/* 🚫 RESPONSE INTERCEPTOR */
 axiosClient.interceptors.response.use(
   response => {
-    console.log('Axios Response:', response.config.url, response.status);
+    console.log('✅', response.config.url, response.status);
     return response;
   },
   async error => {
-    console.error('Axios Error:', error.config?.url, error.response?.status);
+    console.error(
+      '❌',
+      error.config?.url,
+      error.response?.status
+    );
+
     if (error.response?.status === 401) {
-      await AsyncStorage.removeItem('authToken');
-      store.dispatch({ type: 'auth/logout' });
+      await AsyncStorage.multiRemove(['authToken', 'authUser']);
+      store.dispatch(logout());
     }
+
     return Promise.reject(error);
   }
 );

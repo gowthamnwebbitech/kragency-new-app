@@ -12,28 +12,35 @@ import Feather from 'react-native-vector-icons/Feather';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import colors from '@/theme/colors';
 
-const HEADER_HEIGHT = 76;
+const HEADER_HEIGHT = 60;
 
 interface Props {
   title?: string;
   showBack?: boolean;
-  showCart?: boolean; // control cart visibility
+  showCart?: boolean;       
+  showWallet?: boolean;     
   walletAmount?: string;
-  showLogin?: boolean; // show login button if not authenticated
+  cartCount?: number;       // Added cart count prop
+  showLogin?: boolean;      
 }
 
 export default function CommonHeader({
   title,
   showBack = false,
   showCart = true,
+  showWallet = true,
   walletAmount = '₹0',
+  cartCount = 3,            // Defaulted to 0
   showLogin = false,
 }: Props) {
   const navigation = useNavigation<NavigationProp<any>>();
 
   return (
     <View style={styles.container}>
-      <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
+      <StatusBar
+        backgroundColor={colors.background}
+        barStyle="dark-content"
+      />
 
       <View style={styles.header}>
         {/* LEFT: Back Button or Logo */}
@@ -60,7 +67,7 @@ export default function CommonHeader({
             {title}
           </Text>
         ) : (
-          <View style={{ flex: 1 }} /> // occupy space if no title
+          <View style={{ flex: 1 }} />
         )}
 
         {/* RIGHT: Wallet + Cart or Login */}
@@ -75,20 +82,30 @@ export default function CommonHeader({
             </TouchableOpacity>
           ) : (
             <>
-              {/* Wallet */}
-              <View style={styles.wallet}>
-                <Feather name="credit-card" size={14} color={colors.primary} />
-                <Text style={styles.walletText}>{walletAmount}</Text>
-              </View>
+              {/* Wallet - Now Clickable & with Money Icon */}
+              {showWallet && (
+                <TouchableOpacity 
+                  style={styles.wallet}
+                  onPress={() => navigation.navigate('Wallet')} // Navigate to Wallet
+                >
+                  <Feather name="dollar-sign" size={14} color={colors.primary} />
+                  <Text style={styles.walletText}>{walletAmount}</Text>
+                </TouchableOpacity>
+              )}
 
-              {/* Cart */}
+              {/* Cart - Now with Count Badge */}
               {showCart && (
                 <TouchableOpacity
                   style={styles.iconBtn}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate('Cart')}
+                  onPress={() => navigation.navigate('Cart')} // Navigate to Cart
                 >
                   <Feather name="shopping-cart" size={18} color={colors.text} />
+                  {cartCount > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{cartCount}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               )}
             </>
@@ -102,16 +119,15 @@ export default function CommonHeader({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 16,
     shadowColor: '#000',
-    paddingTop: 10,
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 2,
-    elevation: 3,
+    elevation: 0.5,
   },
   header: {
     height: HEADER_HEIGHT,
-    paddingTop: Platform.OS === 'ios' ? 44 : 16,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -157,6 +173,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 3,
+  },
+  // Added Badge Styles
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#FF0000',
+    borderRadius: 10,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   loginBtn: {
     borderWidth: 1,

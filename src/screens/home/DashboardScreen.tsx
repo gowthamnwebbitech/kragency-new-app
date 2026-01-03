@@ -15,6 +15,7 @@ import CommonHeader from '@/components/CommonHeader';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
 import { useNavigation } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -71,7 +72,9 @@ export default function HomeScreen() {
   const handlePlayPress = (gameId: number) => {
     if (!isAuthenticated) {
       
-      navigation.getParent()?.navigate('Login');
+      navigation.dispatch(
+  CommonActions.navigate('Login')
+);
     } else {
       navigation.navigate('SlotScreen', { gameId });
     }

@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
-  Easing,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Feather from 'react-native-vector-icons/Feather';
@@ -15,8 +14,10 @@ import colors from '@/theme/colors';
 import CommonHeader from '@/components/CommonHeader';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
+const CARD_WIDTH = (width - 60) / 2;
 
 interface Slot {
   time: string;
@@ -37,11 +38,15 @@ const SLOTS: Slot[] = [
   { time: '08:00 PM', status: 'active' },
 ];
 
-export default function SlotGameScreen({ navigation }: any) {
+export default function SlotGameScreen() {
+  const navigation = useNavigation();
   const isAuthenticated = useSelector(
     (state: RootState) => state.auth.isAuthenticated
   );
 
+  // -------------------------------
+  // Hooks (always top-level, same order)
+  // -------------------------------
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   const animatedScales = useRef(
@@ -51,38 +56,61 @@ export default function SlotGameScreen({ navigation }: any) {
     }, {} as Record<string, Animated.Value>)
   ).current;
 
-  const gradientAnim = useRef(new Animated.Value(0)).current;
+  const prevSelected = useRef<string | null>(null);
 
+  // -------------------------------
+  // Effects
+  // -------------------------------
+  // Auto-select first active slot on mount
   useEffect(() => {
-    Animated.loop(
-      Animated.timing(gradientAnim, {
-        toValue: 1,
-        duration: 3000,
-        easing: Easing.linear,
-        useNativeDriver: false,
-      })
-    ).start();
+    const firstActive = SLOTS.find(slot => slot.status === 'active');
+    if (firstActive) setSelectedSlot(firstActive.time);
   }, []);
 
+  // Animate only previous & current selected slot
   useEffect(() => {
-    SLOTS.forEach((slot) => {
-      Animated.spring(animatedScales[slot.time], {
-        toValue: selectedSlot === slot.time ? 1.08 : 1,
+    if (prevSelected.current) {
+      Animated.spring(animatedScales[prevSelected.current], {
+        toValue: 1,
         friction: 5,
         tension: 100,
         useNativeDriver: true,
       }).start();
-    });
+    }
+
+    if (selectedSlot) {
+      Animated.spring(animatedScales[selectedSlot], {
+        toValue: 1.08,
+        friction: 5,
+        tension: 100,
+        useNativeDriver: true,
+      }).start();
+    }
+
+    prevSelected.current = selectedSlot;
   }, [selectedSlot]);
+
+  // -------------------------------
+  // Handlers
+  // -------------------------------
+  const handleSlotPress = (slot: Slot) => {
+    if (!isAuthenticated) {
+      navigation.navigate('Login' as never);
+      return;
+    }
+
+    if (slot.status === 'active') {
+      setSelectedSlot(slot.time);
+    }
+  };
 
   const renderSlot = ({ item }: { item: Slot }) => {
     const isSelected = selectedSlot === item.time;
-    const cardWidth = (width - 60) / 2; // compact two-column layout
 
     return (
       <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={() => item.status === 'active' && setSelectedSlot(item.time)}
+        activeOpacity={item.status === 'active' ? 0.8 : 1}
+        onPress={() => handleSlotPress(item)}
         style={{ marginBottom: 14 }}
       >
         <Animated.View style={{ transform: [{ scale: animatedScales[item.time] }] }}>
@@ -98,7 +126,7 @@ export default function SlotGameScreen({ navigation }: any) {
             end={{ x: 1, y: 1 }}
             style={[
               styles.slotCard,
-              { width: cardWidth },
+              { width: CARD_WIDTH },
               item.status === 'closed' && styles.slotCardClosed,
               isSelected && {
                 shadowColor: '#FF3D71',
@@ -109,7 +137,6 @@ export default function SlotGameScreen({ navigation }: any) {
               },
             ]}
           >
-            {/* Icon + Time */}
             <View style={styles.leftSection}>
               <Feather
                 name={item.status === 'active' ? 'unlock' : 'lock'}
@@ -127,7 +154,6 @@ export default function SlotGameScreen({ navigation }: any) {
               </Text>
             </View>
 
-            {/* Status Badge */}
             <View
               style={[
                 styles.statusBadge,
@@ -156,19 +182,24 @@ export default function SlotGameScreen({ navigation }: any) {
   return (
     <View style={styles.root}>
       <CommonHeader
-        walletAmount={isAuthenticated ? '₹2450' : undefined}
-        showLogin={!isAuthenticated}
-        onLoginPress={() => navigation.getParent()?.navigate('Login')}
+        title="Game Slot"
+        showBack
+        walletAmount={isAuthenticated ? '₹2,450' : undefined}
+        showCart={false}
+        onBackPress={() => navigation.goBack()}
       />
 
       <Text style={styles.title}>3D JACKPOT</Text>
 
       <FlatList
         data={SLOTS}
-        keyExtractor={(item) => item.time}
+        keyExtractor={item => item.time}
         renderItem={renderSlot}
         numColumns={2}
-        columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 20 }}
+        columnWrapperStyle={{
+          justifyContent: 'space-between',
+          paddingHorizontal: 20,
+        }}
         contentContainerStyle={{ paddingVertical: 10 }}
         showsVerticalScrollIndicator={false}
       />
@@ -177,10 +208,7 @@ export default function SlotGameScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  root: { flex: 1, backgroundColor: colors.background },
   title: {
     fontSize: 24,
     fontWeight: '900',

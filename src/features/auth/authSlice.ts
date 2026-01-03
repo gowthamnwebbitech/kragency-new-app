@@ -2,12 +2,13 @@ import { createSlice } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthState } from './authTypes';
 import { loginThunk } from './authThunk';
+import { loadAuthFromStorage } from './authStorageThunk';
 
 const initialState: AuthState = {
   token: null,
   user: null,
-  loading: false,
   isAuthenticated: false,
+  loading: true, // 🔥 IMPORTANT
   error: undefined,
 };
 
@@ -19,16 +20,12 @@ const authSlice = createSlice({
       state.token = null;
       state.user = null;
       state.isAuthenticated = false;
-      AsyncStorage.removeItem('authToken');
-    },
-    setAuthFromStorage: (state, action) => {
-      state.token = action.payload.token;
-      state.user = action.payload.user;
-      state.isAuthenticated = true;
+      AsyncStorage.multiRemove(['authToken', 'authUser']);
     },
   },
   extraReducers: builder => {
     builder
+      // 🔐 LOGIN
       .addCase(loginThunk.pending, state => {
         state.loading = true;
         state.error = undefined;
@@ -42,9 +39,22 @@ const authSlice = createSlice({
       .addCase(loginThunk.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+
+      // ♻ RESTORE SESSION
+      .addCase(loadAuthFromStorage.pending, state => {
+        state.loading = true;
+      })
+      .addCase(loadAuthFromStorage.fulfilled, (state, action) => {
+        if (action.payload.token) {
+          state.token = action.payload.token;
+          state.user = action.payload.user;
+          state.isAuthenticated = true;
+        }
+        state.loading = false;
       });
   },
 });
 
-export const { logout, setAuthFromStorage } = authSlice.actions;
+export const { logout } = authSlice.actions;
 export default authSlice.reducer;

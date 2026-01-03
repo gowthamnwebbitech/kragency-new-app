@@ -2,7 +2,6 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loginApi } from '@/api/authApi';
 import { User } from './authTypes';
-import { ENV } from '@/env';
 
 interface LoginPayload {
   mobile: string;
@@ -21,14 +20,19 @@ export const loginThunk = createAsyncThunk<
   { rejectValue: string }
 >('auth/login', async (data, { rejectWithValue }) => {
   try {
-    const url = ENV.API_BASE_URL + '/customer/login';
-    console.log('Login API called:', url, 'Payload:', data);
-
+    console.log('🔐 LOGIN PAYLOAD:', data);
     const res = await loginApi(data);
+    console.log('✅ LOGIN RESPONSE:', {
+      token: res.token,
+      user: res.user,
+      message: res.message,
+    });
 
-    console.log('Login Success:', res);
-
-    await AsyncStorage.setItem('authToken', res.token);
+    // 🔐 Persist auth
+    await AsyncStorage.multiSet([
+      ['authToken', res.token],
+      ['authUser', JSON.stringify(res.user)],
+    ]);
 
     return {
       token: res.token,
@@ -36,16 +40,14 @@ export const loginThunk = createAsyncThunk<
       message: res.message,
     };
   } catch (err: any) {
-    // Full error logging
-    console.error('Login Error full object:', err);
+    console.error('❌ LOGIN ERROR FULL:', err);
 
-    // Safe extraction of error message
     const message =
-      err?.response?.data?.message || // server message
-      err?.message ||                // network error
-      'Something went wrong. Please try again.';
+      err?.response?.data?.message ||
+      err?.message ||
+      'Login failed. Try again.';
 
-    console.warn('Login Error message:', message);
+    console.warn('⚠️ LOGIN ERROR MESSAGE:', message);
 
     return rejectWithValue(message);
   }
