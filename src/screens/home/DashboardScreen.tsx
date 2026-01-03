@@ -84,7 +84,7 @@ export default function HomeScreen() {
     <View style={styles.root}>
       {/* COMMON HEADER */}
       <CommonHeader
-        walletAmount={isAuthenticated ? '₹2,450' : undefined}
+        walletAmount={isAuthenticated ? '2,450' : undefined}
         showCart={isAuthenticated}
         showLogin={!isAuthenticated}
       />
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 12,
     alignItems: 'center',
-    elevation: 3,
+    elevation: 1,
   },
   featureLogo: { width: 44, height: 44, borderRadius: 10, marginRight: 12 },
   featureInfo: { flex: 1 },
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 10,
     alignItems: 'center',
-    elevation: 2,
+    elevation: 1,
   },
   trustIcon: {
     width: 36,

@@ -11,17 +11,19 @@ import {
 import Feather from 'react-native-vector-icons/Feather';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import colors from '@/theme/colors';
+import Logo from '@/assets/logo/logo.png';
 
 const HEADER_HEIGHT = 60;
 
 interface Props {
   title?: string;
   showBack?: boolean;
-  showCart?: boolean;       
-  showWallet?: boolean;     
+  showCart?: boolean;
+  showWallet?: boolean;
   walletAmount?: string;
-  cartCount?: number;       // Added cart count prop
-  showLogin?: boolean;      
+  cartCount?: number;
+  showLogin?: boolean;
+  onBackPress?: () => void;
 }
 
 export default function CommonHeader({
@@ -30,35 +32,35 @@ export default function CommonHeader({
   showCart = true,
   showWallet = true,
   walletAmount = '₹0',
-  cartCount = 3,            // Defaulted to 0
+  cartCount = 3, // Defaulted to 0
   showLogin = false,
+  onBackPress,
 }: Props) {
   const navigation = useNavigation<NavigationProp<any>>();
 
+  const handleBack = () => {
+    if (onBackPress) {
+      onBackPress();
+    } else if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  };
   return (
     <View style={styles.container}>
-      <StatusBar
-        backgroundColor={colors.background}
-        barStyle="dark-content"
-      />
+      <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
 
       <View style={styles.header}>
         {/* LEFT: Back Button or Logo */}
         {showBack ? (
           <TouchableOpacity
-            onPress={() =>
-              navigation.canGoBack() ? navigation.goBack() : null
-            }
+            onPress={handleBack}
             style={styles.iconBtn}
             activeOpacity={0.7}
           >
             <Feather name="arrow-left" size={20} color={colors.text} />
           </TouchableOpacity>
         ) : (
-          <Image
-            source={require('@/assets/logo/logo.png')}
-            style={styles.logo}
-          />
+          <Image source={Logo} style={styles.logo} />
         )}
 
         {/* CENTER: Title */}
@@ -84,11 +86,12 @@ export default function CommonHeader({
             <>
               {/* Wallet - Now Clickable & with Money Icon */}
               {showWallet && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.wallet}
-                  onPress={() => navigation.navigate('Wallet')} // Navigate to Wallet
+                  onPress={() => navigation.navigate('Wallet')}
+                  activeOpacity={0.8}
                 >
-                  <Feather name="dollar-sign" size={14} color={colors.primary} />
+                  <Text style={styles.rupee}>₹</Text>
                   <Text style={styles.walletText}>{walletAmount}</Text>
                 </TouchableOpacity>
               )}
@@ -134,9 +137,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   logo: {
-    width: 102,
+    width: 112,
     height: 72,
-    resizeMode: 'contain',
+    resizeMode: 'cover',
   },
   title: {
     flex: 1,
@@ -153,18 +156,25 @@ const styles = StyleSheet.create({
   wallet: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: '#E8F9F1', // soft green fill
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
-    elevation: 3,
+    borderRadius: 18,
   },
+
+  rupee: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#16A34A', // deep green
+    marginRight: 4,
+  },
+
   walletText: {
-    marginLeft: 6,
-    fontWeight: '700',
     fontSize: 13,
-    color: colors.text,
+    fontWeight: '800',
+    color: '#16A34A',
   },
+
   iconBtn: {
     width: 38,
     height: 38,

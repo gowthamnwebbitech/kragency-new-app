@@ -16,7 +16,7 @@ export default function AppButton({ title, onPress, loading = false, style, text
       onPress={onPress}
       activeOpacity={0.8}
       style={[styles.btnContainer, style]}
-      disabled={loading} // disable while loading
+      disabled={loading}
     >
       <View style={styles.btn}>
         {loading ? (
@@ -39,7 +39,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    // Premium shadow
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,

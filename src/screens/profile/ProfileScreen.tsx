@@ -18,6 +18,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '@/features/auth/authSlice';
 import { RootState } from '@/app/store';
 import Toast from 'react-native-toast-message';
+import Logo from '@/assets/logo/logo.png';
 
 const { width } = Dimensions.get('window');
 
@@ -61,7 +62,7 @@ export default function ProfileScreen({ navigation }: any) {
       <CommonHeader
         title="Account"
         showBack
-        walletAmount="₹2,450"
+        walletAmount="2,450"
         onBackPress={() => navigation.goBack()}
       />
 
@@ -78,10 +79,7 @@ export default function ProfileScreen({ navigation }: any) {
           style={styles.heroCard}
         >
           <View style={styles.heroTop}>
-            <Image
-              source={require('@/assets/logo/logo.png')}
-              style={styles.compactAvatar}
-            />
+            <Image source={Logo} style={styles.compactAvatar} />
             <View style={styles.heroText}>
               <Text style={styles.name}>{user?.name || 'Gowtham N'}</Text>
               <View style={styles.idBadge}>

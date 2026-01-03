@@ -87,14 +87,14 @@ export default function PaymentHistoryScreen({ navigation }: any) {
         showBack
         showCart={false}
         showWallet={false}  
-        walletAmount="₹2,450"
+        walletAmount="2,450"
         onBackPress={() => navigation.goBack()}
       />
 
       {/* Hero Balance Section */}
       <View style={styles.heroSection}>
         <Text style={styles.heroLabel}>Total Balance</Text>
-        <Text style={styles.heroAmount}>₹2,450.00</Text>
+        <Text style={styles.heroAmount}>2,450.00</Text>
         <View style={styles.verifiedBadge}>
            <Feather name="shield" size={10} color="#10B981" />
            <Text style={styles.verifiedText}>Secured Wallet</Text>

@@ -64,7 +64,7 @@ export default function ResultsScreen() {
       <CommonHeader
         title="Results"
         showBack
-        walletAmount="₹2,450"
+        walletAmount="2,450"
         showCart={false}
         onBackPress={() => navigation.goBack()}
       />

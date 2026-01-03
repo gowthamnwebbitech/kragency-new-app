@@ -43,7 +43,7 @@ export default function RulesScreen({ navigation }: any) {
       <CommonHeader
         title="Game Rules"
         showBack
-        walletAmount="₹2,450"
+        walletAmount="2,450"
         onBackPress={() => navigation.goBack()}
         showCart={false} // Hide cart on this screen
       />
@@ -86,14 +86,14 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#F9F9F9',
-    borderRadius: 16,
+    borderRadius: 10,
     padding: 18,
     marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
-    elevation: 3,
+    elevation: 1,
   },
   ruleTitle: {
     fontSize: width * 0.045,

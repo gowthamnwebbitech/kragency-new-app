@@ -7,17 +7,21 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Feather from 'react-native-vector-icons/Feather';
-import colors from '@/theme/colors';
-import CommonHeader from '@/components/CommonHeader';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
 import { useNavigation } from '@react-navigation/native';
 
+// Professional Colors from your theme
+import colors from '@/theme/colors';
+import CommonHeader from '@/components/CommonHeader';
+
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 60) / 2;
+const CARD_WIDTH = (width - 56) / 2;
 
 interface Slot {
   time: string;
@@ -29,24 +33,17 @@ const SLOTS: Slot[] = [
   { time: '11:00 AM', status: 'closed' },
   { time: '12:00 PM', status: 'closed' },
   { time: '01:00 PM', status: 'closed' },
-  { time: '02:00 PM', status: 'closed' },
-  { time: '03:00 PM', status: 'closed' },
+  { time: '02:00 PM', status: 'active' },
+  { time: '03:00 PM', status: 'active' },
   { time: '04:00 PM', status: 'active' },
   { time: '05:00 PM', status: 'active' },
   { time: '06:00 PM', status: 'active' },
   { time: '07:00 PM', status: 'active' },
-  { time: '08:00 PM', status: 'active' },
 ];
 
 export default function SlotGameScreen() {
   const navigation = useNavigation();
-  const isAuthenticated = useSelector(
-    (state: RootState) => state.auth.isAuthenticated
-  );
-
-  // -------------------------------
-  // Hooks (always top-level, same order)
-  // -------------------------------
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   const animatedScales = useRef(
@@ -56,202 +53,258 @@ export default function SlotGameScreen() {
     }, {} as Record<string, Animated.Value>)
   ).current;
 
-  const prevSelected = useRef<string | null>(null);
-
-  // -------------------------------
-  // Effects
-  // -------------------------------
-  // Auto-select first active slot on mount
   useEffect(() => {
     const firstActive = SLOTS.find(slot => slot.status === 'active');
     if (firstActive) setSelectedSlot(firstActive.time);
   }, []);
 
-  // Animate only previous & current selected slot
-  useEffect(() => {
-    if (prevSelected.current) {
-      Animated.spring(animatedScales[prevSelected.current], {
-        toValue: 1,
-        friction: 5,
-        tension: 100,
-        useNativeDriver: true,
-      }).start();
-    }
-
-    if (selectedSlot) {
-      Animated.spring(animatedScales[selectedSlot], {
-        toValue: 1.08,
-        friction: 5,
-        tension: 100,
-        useNativeDriver: true,
-      }).start();
-    }
-
-    prevSelected.current = selectedSlot;
-  }, [selectedSlot]);
-
-  // -------------------------------
-  // Handlers
-  // -------------------------------
   const handleSlotPress = (slot: Slot) => {
     if (!isAuthenticated) {
       navigation.navigate('Login' as never);
       return;
     }
-
     if (slot.status === 'active') {
+      Animated.sequence([
+        Animated.timing(animatedScales[slot.time], { toValue: 0.96, duration: 100, useNativeDriver: true }),
+        Animated.spring(animatedScales[slot.time], { toValue: 1, friction: 4, useNativeDriver: true })
+      ]).start();
       setSelectedSlot(slot.time);
     }
   };
 
   const renderSlot = ({ item }: { item: Slot }) => {
     const isSelected = selectedSlot === item.time;
+    const isActive = item.status === 'active';
 
     return (
       <TouchableOpacity
-        activeOpacity={item.status === 'active' ? 0.8 : 1}
+        activeOpacity={isActive ? 0.8 : 1}
         onPress={() => handleSlotPress(item)}
-        style={{ marginBottom: 14 }}
+        style={styles.cardWrapper}
       >
         <Animated.View style={{ transform: [{ scale: animatedScales[item.time] }] }}>
-          <LinearGradient
-            colors={
-              item.status === 'active'
-                ? isSelected
-                  ? ['#FF6B6B', '#FF3D71']
-                  : ['#7A5BFF', '#A24DFF']
-                : ['#F2F2F2', '#E0E0E0']
-            }
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[
-              styles.slotCard,
-              { width: CARD_WIDTH },
-              item.status === 'closed' && styles.slotCardClosed,
-              isSelected && {
-                shadowColor: '#FF3D71',
-                shadowOpacity: 0.4,
-                shadowOffset: { width: 0, height: 6 },
-                shadowRadius: 10,
-                elevation: 6,
-              },
-            ]}
-          >
-            <View style={styles.leftSection}>
-              <Feather
-                name={item.status === 'active' ? 'unlock' : 'lock'}
-                size={18}
-                color={item.status === 'active' ? '#FFF' : '#AAA'}
-                style={{ marginRight: 8 }}
+          <View style={[
+            styles.slotCard,
+            { backgroundColor: colors.card },
+            isActive && styles.activeCardShadow,
+            isSelected && { borderColor: colors.primary, borderWidth: 2 },
+            !isActive && styles.lockedCard
+          ]}>
+            
+            <View style={[
+                styles.statusPill, 
+                { backgroundColor: isActive ? (isSelected ? colors.primary : colors.secondary + '15') : '#E2E8F0' }
+            ]}>
+              <Feather 
+                name={isActive ? "play" : "lock"} 
+                size={10} 
+                color={isActive ? (isSelected ? '#FFF' : colors.primary) : '#94A3B8'} 
               />
-              <Text
-                style={[
-                  styles.slotTime,
-                  item.status === 'closed' && { color: '#777' },
-                ]}
-              >
-                {item.time}
+              <Text style={[
+                styles.statusText, 
+                { color: isActive ? (isSelected ? '#FFF' : colors.primary) : '#64748B' }
+              ]}>
+                {isActive ? 'ACTIVE' : 'CLOSED'}
               </Text>
             </View>
 
-            <View
-              style={[
-                styles.statusBadge,
-                item.status === 'active'
-                  ? isSelected
-                    ? { backgroundColor: 'rgba(255,255,255,0.6)' }
-                    : { backgroundColor: 'rgba(255,255,255,0.25)' }
-                  : { backgroundColor: '#CCC' },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusText,
-                  item.status === 'closed' && { color: '#555' },
-                ]}
-              >
-                {item.status === 'active' ? 'OPEN' : 'CLOSED'}
-              </Text>
-            </View>
-          </LinearGradient>
+            <Text style={[styles.slotTime, { color: isSelected ? colors.primary : colors.text }]}>
+              {item.time}
+            </Text>
+
+            <Text style={styles.entryText}>{isActive ? 'ENTRY OPEN' : 'ENDED'}</Text>
+          </View>
         </Animated.View>
+        
+        {isSelected && (
+            <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
+                <Feather name="check" size={12} color="#FFF" />
+            </View>
+        )}
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle="dark-content" />
       <CommonHeader
-        title="Game Slot"
+        title="Gaming Hub"
         showBack
-        walletAmount={isAuthenticated ? '₹2,450' : undefined}
-        showCart={false}
+        walletAmount={isAuthenticated ? '2,450' : 'Login'}
         onBackPress={() => navigation.goBack()}
       />
-
-      <Text style={styles.title}>3D JACKPOT</Text>
 
       <FlatList
         data={SLOTS}
         keyExtractor={item => item.time}
         renderItem={renderSlot}
         numColumns={2}
-        columnWrapperStyle={{
-          justifyContent: 'space-between',
-          paddingHorizontal: 20,
-        }}
-        contentContainerStyle={{ paddingVertical: 10 }}
+        ListHeaderComponent={() => (
+            <View style={styles.headerArea}>
+                {/* Game Name Label */}
+                <View style={styles.gameBadge}>
+                    <Text style={styles.gameBadgeText}>3D JACKPOT</Text>
+                </View>
+                
+                <View style={styles.scheduleTextContainer}>
+                    <Text style={[styles.headerSub, { color: colors.textLight }]}>TODAY'S SCHEDULE</Text>
+                    <Text style={[styles.headerMain, { color: colors.text }]}>Choose a Slot</Text>
+                </View>
+            </View>
+        )}
+        contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+
+      {selectedSlot && (
+        <View style={styles.bottomBar}>
+            <LinearGradient
+                colors={[colors.primary, '#BE123C']}
+                style={styles.playBtnGradient}
+            >
+                <TouchableOpacity style={styles.playBtnTouch}>
+                    <Text style={styles.playBtnText}>JOIN {selectedSlot} SLOT</Text>
+                    <Feather name="chevron-right" size={20} color="#FFF" />
+                </TouchableOpacity>
+            </LinearGradient>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  title: {
+  root: { flex: 1 },
+  headerArea: {
+    paddingHorizontal: 4,
+    marginBottom: 20,
+    marginTop: 15,
+    alignItems: 'flex-start',
+  },
+  gameBadge: {
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    marginBottom: 12,
+  },
+  gameBadgeText: {
+    color: '#E11D48',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  scheduleTextContainer: {
+    marginLeft: 4,
+  },
+  headerSub: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  headerMain: {
     fontSize: 24,
-    fontWeight: '900',
-    color: colors.text,
-    textAlign: 'center',
-    marginVertical: 18,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 120,
+  },
+  cardWrapper: {
+    width: CARD_WIDTH,
+    marginRight: 16,
+    marginBottom: 16,
   },
   slotCard: {
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    flexDirection: 'column',
-    justifyContent: 'center',
+    borderRadius: 22,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  slotCardClosed: {
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: 'transparent',
   },
-  leftSection: {
+  lockedCard: {
+    opacity: 0.5,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  activeCardShadow: {
+    ...Platform.select({
+      ios: {
+        shadowColor: '#E11D48',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: { elevation: 3 },
+    }),
+  },
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-  },
-  slotTime: {
-    color: '#FFF',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  statusBadge: {
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
+    marginBottom: 12,
   },
   statusText: {
-    color: '#FFF',
-    fontWeight: '700',
-    fontSize: 11,
-    textTransform: 'uppercase',
+    fontSize: 9,
+    fontWeight: '900',
+    marginLeft: 4,
   },
+  slotTime: {
+    fontSize: 19,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  entryText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    fontWeight: '700',
+  },
+  checkBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
+    elevation: 4,
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 30,
+    left: 24,
+    right: 24,
+  },
+  playBtnGradient: {
+    borderRadius: 20,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  playBtnTouch: {
+    height: 60,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '800',
+    marginRight: 8,
+    letterSpacing: 0.5,
+  }
 });

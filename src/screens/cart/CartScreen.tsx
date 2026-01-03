@@ -7,13 +7,10 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Dimensions,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import CommonHeader from '@/components/CommonHeader';
 import colors from '@/theme/colors';
-
-const { width } = Dimensions.get('window');
 
 // Data consistent with your Jackpot theme
 const DUMMY_CART = [
@@ -106,8 +103,11 @@ export default function CartScreen({ navigation }: any) {
       
       <CommonHeader 
         title="Review Bets" 
-        showBack 
-        showCart={false} 
+       showBack
+        showCart={false}
+        showWallet={true}  
+        walletAmount="2,450"
+        onBackPress={() => navigation.goBack()}
         cartCount={cart.length} 
       />
 
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     overflow: 'hidden',
     // High-quality subtle shadow
-    elevation: 3,
+    elevation: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,

@@ -6,7 +6,6 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
-  Dimensions,
   StatusBar,
   Platform,
 } from 'react-native';
@@ -14,7 +13,6 @@ import Feather from 'react-native-vector-icons/Feather';
 import CommonHeader from '@/components/CommonHeader';
 import colors from '@/theme/colors';
 
-const { width } = Dimensions.get('window');
 
 // Types
 type FilterStatus = 'ALL' | 'WON' | 'PENDING';
@@ -124,7 +122,7 @@ export default function OrderHistoryScreen({ navigation }: any) {
         showBack
          showCart={false}
          showWallet={false}  
-        walletAmount="₹2,450"
+        walletAmount="2,450"
         onBackPress={() => navigation.goBack()}
       />
 
@@ -245,7 +243,7 @@ const styles = StyleSheet.create({
   cardContainer: {
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 10,
     marginBottom: 16,
     overflow: 'hidden',
     ...Platform.select({
@@ -256,7 +254,7 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
       },
       android: {
-        elevation: 4,
+        elevation: 1,
       },
     }),
     borderWidth: 1,
