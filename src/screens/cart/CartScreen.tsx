@@ -11,6 +11,7 @@ import {
 import Feather from 'react-native-vector-icons/Feather';
 import CommonHeader from '@/components/CommonHeader';
 import colors from '@/theme/colors';
+import ScreenContainer from '@/components/ScreenContainer';
 
 // Data consistent with your Jackpot theme
 const DUMMY_CART = [
@@ -98,7 +99,7 @@ export default function CartScreen({ navigation }: any) {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScreenContainer>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
       <CommonHeader 
@@ -157,7 +158,7 @@ export default function CartScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
       )}
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }
 

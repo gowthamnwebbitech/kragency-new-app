@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,13 @@ import {
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import Carousel from 'react-native-reanimated-carousel';
+import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
+
 import colors from '@/theme/colors';
 import CommonHeader from '@/components/CommonHeader';
-import { useSelector } from 'react-redux';
+import ScreenContainer from '@/components/ScreenContainer';
 import { RootState } from '@/app/store';
-import { useNavigation } from '@react-navigation/native';
-import { CommonActions } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -57,32 +58,70 @@ const TRUST = [
 
 /* ================= SCREEN ================= */
 export default function HomeScreen() {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
   const navigation = useNavigation();
-  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated } = useSelector(
+    (state: RootState) => state.auth,
+  );
 
+  /* ✅ Create animations ONCE (safe) */
+  const featuredAnimations = useMemo(
+    () =>
+      FEATURED.map(() => ({
+        opacity: new Animated.Value(0),
+        translateY: new Animated.Value(20),
+      })),
+    [],
+  );
+
+  const trustAnimations = useMemo(
+    () =>
+      TRUST.map(() => ({
+        opacity: new Animated.Value(0),
+      })),
+    [],
+  );
+
+  
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
-  }, []);
+    const featured = featuredAnimations.map((anim, index) =>
+      Animated.parallel([
+        Animated.timing(anim.opacity, {
+          toValue: 1,
+          duration: 500,
+          delay: index * 120,
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim.translateY, {
+          toValue: 0,
+          duration: 500,
+          delay: index * 120,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    const trust = trustAnimations.map((anim, index) =>
+      Animated.timing(anim.opacity, {
+        toValue: 1,
+        duration: 400,
+        delay: index * 100,
+        useNativeDriver: true,
+      }),
+    );
+
+    Animated.stagger(120, [...featured, ...trust]).start();
+  }, [featuredAnimations, trustAnimations]);
 
   const handlePlayPress = (gameId: number) => {
     if (!isAuthenticated) {
-      
-      navigation.dispatch(
-  CommonActions.navigate('Login')
-);
+      navigation.dispatch(CommonActions.navigate('Login'));
     } else {
       navigation.navigate('SlotScreen', { gameId });
     }
   };
 
   return (
-    <View style={styles.root}>
-      {/* COMMON HEADER */}
+    <ScreenContainer>
       <CommonHeader
         walletAmount={isAuthenticated ? '2,450' : undefined}
         showCart={isAuthenticated}
@@ -93,7 +132,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        {/* BANNERS */}
+        {/* 🎞 Banner */}
         <View style={styles.bannerWrapper}>
           <Carousel
             width={width}
@@ -108,54 +147,58 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* FEATURED */}
+        {/* ⭐ Featured */}
         <SectionHeader title="Featured Games" />
 
-        {FEATURED.map((item, index) => (
-          <Animated.View
-            key={item.id}
-            style={[
-              styles.featureCard,
-              {
-                opacity: fadeAnim,
-                transform: [
-                  {
-                    translateY: fadeAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20 * (index + 1), 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <Image source={item.logo} style={styles.featureLogo} />
+        {FEATURED.map((item, index) => {
+          const anim = featuredAnimations[index];
 
-            <View style={styles.featureInfo}>
-              <Text style={styles.featureName}>{item.name}</Text>
-              <Text style={styles.featureTime}>{item.time}</Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.playBtn}
-              onPress={() => handlePlayPress(item.id)}
+          return (
+            <Animated.View
+              key={item.id}
+              style={[
+                styles.featureCard,
+                {
+                  opacity: anim.opacity,
+                  transform: [{ translateY: anim.translateY }],
+                },
+              ]}
             >
-              <Feather name="play" size={16} color="#FFF" />
-            </TouchableOpacity>
-          </Animated.View>
-        ))}
+              <Image source={item.logo} style={styles.featureLogo} />
 
-        {/* TRUST */}
+              <View style={styles.featureInfo}>
+                <Text style={styles.featureName}>{item.name}</Text>
+                <Text style={styles.featureTime}>{item.time}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.playBtn}
+                onPress={() => handlePlayPress(item.id)}
+              >
+                <Feather name="play" size={16} color="#FFF" />
+              </TouchableOpacity>
+            </Animated.View>
+          );
+        })}
+
+        {/* 🛡 Trust */}
         <SectionHeader title="Why Choose Us" />
 
         <View style={styles.trustGrid}>
-          {TRUST.map(item => (
+          {TRUST.map((item, index) => (
             <Animated.View
               key={item.id}
-              style={[styles.trustCard, { opacity: fadeAnim }]}
+              style={[
+                styles.trustCard,
+                { opacity: trustAnimations[index].opacity },
+              ]}
             >
               <View style={styles.trustIcon}>
-                <Feather name={item.icon} size={18} color={colors.primary} />
+                <Feather
+                  name={item.icon}
+                  size={18}
+                  color={colors.primary}
+                />
               </View>
               <Text style={styles.trustTitle}>{item.title}</Text>
               <Text style={styles.trustDesc}>{item.desc}</Text>
@@ -163,11 +206,11 @@ export default function HomeScreen() {
           ))}
         </View>
       </Animated.ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }
 
-/* ================= SECTION HEADER ================= */
+/* ================= HEADER ================= */
 const SectionHeader = ({ title }: { title: string }) => (
   <View style={styles.sectionHeader}>
     <Text style={styles.sectionTitle}>{title}</Text>
@@ -177,7 +220,6 @@ const SectionHeader = ({ title }: { title: string }) => (
 
 /* ================= STYLES ================= */
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
   content: { paddingBottom: 40 },
   bannerWrapper: { marginVertical: 16 },
   bannerImage: {
@@ -186,8 +228,17 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: 16,
   },
-  sectionHeader: { marginHorizontal: 16, marginTop: 24, marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
+
+  sectionHeader: {
+    marginHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
   sectionLine: {
     width: 32,
     height: 3,
@@ -195,6 +246,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginTop: 6,
   },
+
   featureCard: {
     flexDirection: 'row',
     backgroundColor: '#FFF',
@@ -205,10 +257,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 1,
   },
-  featureLogo: { width: 44, height: 44, borderRadius: 10, marginRight: 12 },
+  featureLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    marginRight: 12,
+  },
   featureInfo: { flex: 1 },
   featureName: { fontSize: 15, fontWeight: '700' },
-  featureTime: { fontSize: 12, marginTop: 4, color: colors.textLight },
+  featureTime: {
+    fontSize: 12,
+    marginTop: 4,
+    color: colors.textLight,
+  },
   playBtn: {
     width: 40,
     height: 40,
@@ -217,6 +278,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   trustGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

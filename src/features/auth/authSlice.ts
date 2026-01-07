@@ -8,7 +8,7 @@ const initialState: AuthState = {
   token: null,
   user: null,
   isAuthenticated: false,
-  loading: true, // 🔥 IMPORTANT
+  loading: true, 
   error: undefined,
 };
 
@@ -25,7 +25,6 @@ const authSlice = createSlice({
   },
   extraReducers: builder => {
     builder
-      // 🔐 LOGIN
       .addCase(loginThunk.pending, state => {
         state.loading = true;
         state.error = undefined;
@@ -41,7 +40,6 @@ const authSlice = createSlice({
         state.error = action.payload;
       })
 
-      // ♻ RESTORE SESSION
       .addCase(loadAuthFromStorage.pending, state => {
         state.loading = true;
       })

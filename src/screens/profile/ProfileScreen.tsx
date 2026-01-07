@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,248 +6,364 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
-  Platform,
-  Alert,
+  StatusBar,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
-import CommonHeader from '@/components/CommonHeader';
 import LinearGradient from 'react-native-linear-gradient';
-import colors from '@/theme/colors';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout } from '@/features/auth/authSlice';
-import { RootState } from '@/app/store';
 import Toast from 'react-native-toast-message';
-import Logo from '@/assets/logo/logo.png';
+import Animated, {
+  FadeInUp,
+  FadeInDown,
+  ZoomIn,
+} from 'react-native-reanimated';
 
-const { width } = Dimensions.get('window');
+import CommonHeader from '@/components/CommonHeader';
+import ScreenContainer from '@/components/ScreenContainer';
+import colors from '@/theme/colors';
+import { RootState, AppDispatch } from '@/app/store';
+import { fetchProfileThunk } from '@/features/userProfile/profileThunk';
+import { clearProfileMessage } from '@/features/userProfile/profileSlice';
 
 export default function ProfileScreen({ navigation }: any) {
-  const dispatch = useDispatch();
-  const { user } = useSelector((state: RootState) => state.auth);
+  const dispatch = useDispatch<AppDispatch>();
+  const { data, error, success } = useSelector(
+    (state: RootState) => state.profile,
+  );
 
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: () => {
-          dispatch(logout());
-          Toast.show({
-            type: 'success',
-            text1: 'Logged Out',
-            text2: 'Redirecting to login...',
-          });
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Login' }],
-          });
-        },
-      },
-    ]);
-  };
+  useEffect(() => {
+    dispatch(fetchProfileThunk());
+  }, [dispatch]);
 
-  const options = [
+  useEffect(() => {
+    if (error) {
+      Toast.show({ type: 'error', text1: 'Error', text2: error });
+      dispatch(clearProfileMessage());
+    }
+    if (success) {
+      Toast.show({ type: 'success', text1: 'Success', text2: success });
+      dispatch(clearProfileMessage());
+    }
+  }, [error, success, dispatch]);
+
+  const menuOptions = [
     { icon: 'shopping-bag', label: 'Order History', screen: 'OrderHistory' },
     { icon: 'credit-card', label: 'Payment History', screen: 'PaymentHistory' },
-    { icon: 'arrow-up-circle', label: 'Withdraw', screen: 'WithdrawScreen' },
+    {
+      icon: 'arrow-up-circle',
+      label: 'Withdraw Funds',
+      screen: 'WithdrawScreen',
+    },
     { icon: 'list', label: 'Withdraw History', screen: 'WithdrawHistory' },
-    { icon: 'plus-square', label: 'Add Bank Details', screen: 'BankDetails' },
-    { icon: 'log-out', label: 'Logout', color: colors.primary, isLogout: true },
+    { icon: 'plus-square', label: 'Settlement Bank', screen: 'BankDetails' },
   ];
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer style={{ backgroundColor: '#FFF' }}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
       <CommonHeader
-        title="Account"
+        title="Profile"
+        showWallet={false}
         showBack
-        walletAmount="2,450"
-        onBackPress={() => navigation.goBack()}
       />
 
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingVertical: 35 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* ================== COMPACT HERO CARD ================== */}
-        <LinearGradient
-          colors={[colors.primary, colors.secondary]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.heroCard}
+        {/* 👤 BRANDED HEADER (USER ICON STYLE) */}
+        <Animated.View
+          entering={FadeInUp.duration(600)}
+          style={styles.headerWrapper}
         >
-          <View style={styles.heroTop}>
-            <Image source={Logo} style={styles.compactAvatar} />
-            <View style={styles.heroText}>
-              <Text style={styles.name}>{user?.name || 'Gowtham N'}</Text>
-              <View style={styles.idBadge}>
-                <Text style={styles.userId}>ID: {user?.id || 'KR1248'}</Text>
+          <LinearGradient
+            colors={[colors.primary, colors.secondary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.heroGradient}
+          >
+            <View style={styles.profileRow}>
+              {/* Profile Icon Avatar */}
+              <Animated.View
+                entering={ZoomIn.delay(200)}
+                style={styles.avatarContainer}
+              >
+                <View style={styles.iconCircle}>
+                  <Feather name="user" size={32} color={colors.primary} />
+                </View>
+                <TouchableOpacity
+                  style={styles.miniEditBadge}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="camera" size={10} color="#FFF" />
+                </TouchableOpacity>
+              </Animated.View>
+
+              <View style={styles.userInfo}>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {data?.name || 'Guest User'}
+                </Text>
+                <View style={styles.phoneBadge}>
+                  <Feather
+                    name="phone"
+                    size={10}
+                    color="rgba(255,255,255,0.7)"
+                  />
+                  <Text style={styles.userPhone}>
+                    {data?.mobile || 'No Mobile Linked'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.activeIndicator}>
+                <View style={styles.activeDot} />
+                <Text style={styles.activeText}>Active</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.editBtn}>
-              <Feather name="edit-3" size={16} color="#FFF" />
-            </TouchableOpacity>
-          </View>
 
-          <View style={styles.compactStats}>
-            {[
-              { label: 'Orders', val: '12' },
-              { label: 'Wallet', val: '₹2.4k' },
-              { label: 'Banks', val: '05' },
-            ].map((stat, i) => (
-              <View key={i} style={styles.miniStat}>
-                <Text style={styles.statVal}>{stat.val}</Text>
-                <Text style={styles.statLab}>{stat.label}</Text>
+            {/* INTEGRATED STATS PILL */}
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statVal}>{data?.order_count || '0'}</Text>
+                <Text style={styles.statLab}>Orders</Text>
               </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statVal}>
+                  ₹{data?.wallet_balance || '0'}
+                </Text>
+                <Text style={styles.statLab}>Wallet</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statVal}>
+                  ₹{data?.bonus_balance || '0'}
+                </Text>
+                <Text style={styles.statLab}>Bonus</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+
+        {/* 🛠 MENU SECTION */}
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionLabel}>Account Management</Text>
+
+          <View style={styles.menuCard}>
+            {menuOptions.map((opt, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.menuItem,
+                  index === menuOptions.length - 1 && { borderBottomWidth: 0 },
+                ]}
+                activeOpacity={0.6}
+                onPress={() => opt.screen && navigation.navigate(opt.screen)}
+              >
+                <View
+                  style={[
+                    styles.menuIconBox,
+                    { backgroundColor: `${colors.primary}08` },
+                  ]}
+                >
+                  <Feather
+                    name={opt.icon as any}
+                    size={18}
+                    color={colors.primary}
+                  />
+                </View>
+                <Text style={styles.menuLabel}>{opt.label}</Text>
+                <Feather
+                  name="chevron-right"
+                  size={16}
+                  color={colors.disabled}
+                />
+              </TouchableOpacity>
             ))}
           </View>
-        </LinearGradient>
-
-        {/* ================== COMPACT MENU ================== */}
-        <View style={styles.menuContainer}>
-          {options.map((opt, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[styles.menuItem, opt.isLogout && styles.logoutItem]}
-              activeOpacity={0.7}
-              onPress={() => {
-                if (opt.isLogout) {
-                  handleLogout();
-                } else if (opt.screen) {
-                  navigation.navigate(opt.screen);
-                }
-              }}
-            >
-              <View
-                style={[
-                  styles.iconBox,
-                  { backgroundColor: opt.isLogout ? '#FFF1F2' : '#F8FAFC' },
-                ]}
-              >
-                <Feather
-                  name={opt.icon as any}
-                  size={18}
-                  color={opt.color || colors.primary}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.menuText,
-                  opt.isLogout && { color: colors.primary },
-                ]}
-              >
-                {opt.label}
-              </Text>
-              {!opt.isLogout && (
-                <Feather name="chevron-right" size={18} color="#CBD5E1" />
-              )}
-            </TouchableOpacity>
-          ))}
         </View>
+
+        {/* 🚪 SIGN OUT ACTION */}
+        <Animated.View entering={FadeInDown.delay(400)} style={styles.footer}>
+          <TouchableOpacity style={styles.logoutAction} activeOpacity={0.7}>
+            <View style={styles.logoutIconWrapper}>
+              <Feather name="log-out" size={14} color={colors.error} />
+            </View>
+            <Text style={styles.logoutText}>Log Out Account</Text>
+          </TouchableOpacity>
+          <Text style={styles.versionText}>Version 2.0.4 (Build 2026)</Text>
+        </Animated.View>
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  scroll: { flex: 1, paddingHorizontal: 20 },
-
-  heroCard: {
+  headerWrapper: {
+    paddingHorizontal: 20,
+    paddingBottom: 25,
+  },
+  heroGradient: {
     borderRadius: 24,
-    padding: 20,
-    marginTop: 15,
-    marginBottom: 25,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.2,
-        shadowRadius: 15,
-      },
-      android: { elevation: 8 },
-    }),
+    padding: 24,
   },
-  heroTop: { flexDirection: 'row', alignItems: 'center' },
-  compactAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 2,
-    borderColor: '#FFF',
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  heroText: { marginLeft: 15, flex: 1 },
-  name: { fontSize: 20, fontWeight: '800', color: '#FFF' },
-  idBadge: {
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+  iconCircle: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  miniEditBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: colors.text,
+    width: 22,
+    height: 22,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userInfo: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  userName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFF',
+    letterSpacing: -0.5,
+  },
+  phoneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     marginTop: 4,
   },
-  userId: { fontSize: 11, fontWeight: '700', color: '#FFF', opacity: 0.9 },
-  editBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  userPhone: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.7)',
   },
-
-  compactStats: {
+  activeIndicator: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    marginTop: 20,
-    borderRadius: 16,
-    paddingVertical: 12,
-  },
-  miniStat: {
-    flex: 1,
     alignItems: 'center',
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 5,
   },
-  statVal: { color: '#FFF', fontSize: 16, fontWeight: '800' },
-  statLab: {
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22C55E',
+  },
+  activeText: {
     color: '#FFF',
     fontSize: 10,
-    fontWeight: '600',
-    opacity: 0.7,
+    fontWeight: '700',
     textTransform: 'uppercase',
   },
-
-  menuContainer: { backgroundColor: '#FFF' },
+  statsRow: {
+    flexDirection: 'row',
+    marginTop: 25,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  statItem: { flex: 1, alignItems: 'center' },
+  statVal: { color: '#FFF', fontSize: 17, fontWeight: '800' },
+  statLab: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginTop: 4,
+    letterSpacing: 0.5,
+  },
+  statDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignSelf: 'center',
+  },
+  menuSection: { paddingHorizontal: 20 },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.textLight,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+    marginBottom: 16,
+    marginLeft: 4,
+  },
+  menuCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+  },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F8FAFC',
   },
-  iconBox: {
-    width: 40,
-    height: 40,
+  menuIconBox: {
+    width: 38,
+    height: 38,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 15,
   },
-  menuText: {
-    flex: 1,
-    marginLeft: 15,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1E293B',
+  menuLabel: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.text },
+  footer: {
+    marginTop: 35,
+    alignItems: 'center',
   },
-  logoutItem: {
-    marginTop: 20,
-    borderBottomWidth: 0,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+  logoutAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  logoutIconWrapper: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#FFF1F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutText: { color: colors.error, fontWeight: '800', fontSize: 15 },
+  versionText: {
+    fontSize: 11,
+    color: colors.disabled,
+    marginTop: 15,
+    fontWeight: '600',
   },
 });

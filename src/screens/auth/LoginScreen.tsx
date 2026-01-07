@@ -23,6 +23,7 @@ import AppButton from '@/components/AppButton';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { loginThunk } from '@/features/auth/authThunk';
 import RED_LOGO from '@/assets/logo/logo.png';
+import ScreenContainer from '@/components/ScreenContainer';
 
 /* ================= TYPES ================= */
 interface LoginFormData {
@@ -96,99 +97,108 @@ export default function LoginScreen({ navigation }: any) {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <ScreenContainer>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
-        {/* Back */}
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.goBack()}
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Feather name="arrow-left" size={22} color="#1A1A1A" />
-        </TouchableOpacity>
-
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Image source={RED_LOGO} style={styles.logo} resizeMode="contain" />
-          </View>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>
-            Enter your details to access your account
-          </Text>
-        </View>
-
-        {/* Form */}
-        <View style={styles.formCard}>
-          <AppInput
-            control={control}
-            name="mobile"
-            placeholder="Mobile Number"
-            keyboardType="number-pad"
-            leftIcon={
-              <FontAwesome name="phone" size={18} color={PRIMARY_RED} />
-            }
-          />
-          {errors.mobile && (
-            <Text style={styles.errorText}>{errors.mobile.message}</Text>
-          )}
-
-          <View style={{ height: 12 }} />
-
-          <AppInput
-            control={control}
-            name="password"
-            placeholder="Password"
-            secureTextEntry={!showPassword}
-            leftIcon={<FontAwesome name="lock" size={18} color={PRIMARY_RED} />}
-            rightIcon={
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <FontAwesome
-                  name={showPassword ? 'eye' : 'eye-slash'}
-                  size={18}
-                  color={PRIMARY_RED}
-                />
-              </TouchableOpacity>
-            }
-          />
-          {errors.password && (
-            <Text style={styles.errorText}>{errors.password.message}</Text>
-          )}
-
-          <AppButton
-            title={loading ? 'Authenticating...' : 'Sign In'}
-            onPress={handleSubmit(onSubmit, onError)}
-            style={styles.loginButton}
-            disabled={loading}
-          />
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <View style={styles.dividerContainer}>
-            <View style={styles.line} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.line} />
-          </View>
-
+          {/* Back */}
           <TouchableOpacity
-            style={styles.whatsappButton}
-            onPress={handleWhatsAppJoin}
-            activeOpacity={0.8}
+            style={styles.backBtn}
+            onPress={() => navigation.navigate('MainTabs')}
           >
-            <FontAwesome name="whatsapp" size={20} color="#25D366" />
-            <Text style={styles.whatsappText}>Join Now on WhatsApp</Text>
+            <Feather name="arrow-left" size={22} color="#1A1A1A" />
           </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={RED_LOGO}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>
+              Enter your details to access your account
+            </Text>
+          </View>
+
+          {/* Form */}
+          <View style={styles.formCard}>
+            <AppInput
+              control={control}
+              name="mobile"
+              placeholder="Mobile Number"
+              keyboardType="number-pad"
+              leftIcon={
+                <FontAwesome name="phone" size={18} color={PRIMARY_RED} />
+              }
+            />
+            {errors.mobile && (
+              <Text style={styles.errorText}>{errors.mobile.message}</Text>
+            )}
+
+            <View style={{ height: 12 }} />
+
+            <AppInput
+              control={control}
+              name="password"
+              placeholder="Password"
+              secureTextEntry={!showPassword}
+              leftIcon={
+                <FontAwesome name="lock" size={18} color={PRIMARY_RED} />
+              }
+              rightIcon={
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <FontAwesome
+                    name={showPassword ? 'eye' : 'eye-slash'}
+                    size={18}
+                    color={PRIMARY_RED}
+                  />
+                </TouchableOpacity>
+              }
+            />
+            {errors.password && (
+              <Text style={styles.errorText}>{errors.password.message}</Text>
+            )}
+
+            <AppButton
+              title={loading ? 'Authenticating...' : 'Sign In'}
+              onPress={handleSubmit(onSubmit, onError)}
+              style={styles.loginButton}
+              disabled={loading}
+            />
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <View style={styles.dividerContainer}>
+              <View style={styles.line} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.line} />
+            </View>
+
+            <TouchableOpacity
+              style={styles.whatsappButton}
+              onPress={handleWhatsAppJoin}
+              activeOpacity={0.8}
+            >
+              <FontAwesome name="whatsapp" size={20} color="#25D366" />
+              <Text style={styles.whatsappText}>Join Now on WhatsApp</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }
 

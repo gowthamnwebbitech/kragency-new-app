@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 // Professional Colors from your theme
 import colors from '@/theme/colors';
 import CommonHeader from '@/components/CommonHeader';
+import ScreenContainer from '@/components/ScreenContainer';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 56) / 2;
@@ -126,7 +127,7 @@ export default function SlotGameScreen() {
   };
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <ScreenContainer>
       <StatusBar barStyle="dark-content" />
       <CommonHeader
         title="Gaming Hub"
@@ -170,12 +171,11 @@ export default function SlotGameScreen() {
             </LinearGradient>
         </View>
       )}
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
   headerArea: {
     paddingHorizontal: 4,
     marginBottom: 20,

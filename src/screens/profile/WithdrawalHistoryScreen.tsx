@@ -1,58 +1,93 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
-  SafeAreaView,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
-import CommonHeader from '@/components/CommonHeader';
-import colors from '@/theme/colors';
+import { useDispatch, useSelector } from 'react-redux';
 
-// Data based on your uploaded table image
-const WITHDRAW_HISTORY = [
-  { id: '1', date: '2025-12-19T09:15:00', amount: 500.00, status: 'Pending' },
-  { id: '2', date: '2025-12-17T11:38:00', amount: 500.00, status: 'Pending' },
-  { id: '3', date: '2025-12-15T04:32:00', amount: 500.00, status: 'Approved' },
-  { id: '4', date: '2025-11-29T02:32:00', amount: 50.00, status: 'Rejected' },
-];
+import CommonHeader from '@/components/CommonHeader';
+import ScreenContainer from '@/components/ScreenContainer';
+import colors from '@/theme/colors';
+import { AppDispatch, RootState } from '@/app/store';
+import { fetchWithdrawHistoryThunk } from '@/features/withdrawHistory/withdrawHistoryThunk';
 
 export default function WithdrawalHistoryScreen({ navigation }: any) {
+  const dispatch = useDispatch<AppDispatch>();
 
-  const getStatusStyles = (status: string) => {
+  const { list = [], loading, error } = useSelector(
+    (state: RootState) => state.withdrawHistory
+  );
+
+  /* 🔁 INITIAL LOAD */
+  useEffect(() => {
+    dispatch(fetchWithdrawHistoryThunk());
+  }, [dispatch]);
+
+  /* 🔄 PULL TO REFRESH */
+  const onRefresh = useCallback(() => {
+    dispatch(fetchWithdrawHistoryThunk());
+  }, [dispatch]);
+
+  const getStatusUI = (status?: string) => {
     switch (status) {
-      case 'Approved':
-        return { color: '#10B981', bg: '#ECFDF5', icon: 'check-circle' };
-      case 'Rejected':
-        return { color: '#EF4444', bg: '#FEF2F2', icon: 'x-circle' };
-      default: // Pending
-        return { color: '#F59E0B', bg: '#FFFBEB', icon: 'clock' };
+      case 'approved':
+        return {
+          label: 'Approved',
+          color: colors.success,
+          bg: '#ECFDF5',
+          icon: 'check-circle',
+        };
+      case 'rejected':
+        return {
+          label: 'Rejected',
+          color: colors.error,
+          bg: '#FEF2F2',
+          icon: 'x-circle',
+        };
+      default:
+        return {
+          label: 'Pending',
+          color: colors.resultPending,
+          bg: '#FFFBEB',
+          icon: 'clock',
+        };
     }
   };
 
-  const renderItem = ({ item }: { item: typeof WITHDRAW_HISTORY[0] }) => {
-    const statusStyle = getStatusStyles(item.status);
-    const dateObj = new Date(item.date);
+  const renderItem = ({ item }: any) => {
+    const statusUI = getStatusUI(item?.status);
+    const dateObj = item?.date ? new Date(item.date.replace(' ', 'T')) : null;
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={styles.dateRow}>
-            <Feather name="calendar" size={14} color="#94A3B8" />
+            <Feather name="calendar" size={14} color={colors.textLight} />
             <Text style={styles.dateText}>
-              {dateObj.toLocaleDateString('en-US', { 
-                day: '2-digit', 
-                month: 'short', 
-                year: 'numeric' 
-              })}
+              {dateObj
+                ? dateObj.toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })
+                : '--'}
             </Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-            <Feather name={statusStyle.icon as any} size={12} color={statusStyle.color} />
-            <Text style={[styles.statusText, { color: statusStyle.color }]}>
-              {item.status}
+
+          <View style={[styles.statusBadge, { backgroundColor: statusUI.bg }]}>
+            <Feather
+              name={statusUI.icon as any}
+              size={12}
+              color={statusUI.color}
+            />
+            <Text style={[styles.statusText, { color: statusUI.color }]}>
+              {statusUI.label}
             </Text>
           </View>
         </View>
@@ -60,11 +95,19 @@ export default function WithdrawalHistoryScreen({ navigation }: any) {
         <View style={styles.cardBody}>
           <View>
             <Text style={styles.amountLabel}>Requested Amount</Text>
-            <Text style={styles.amountValue}>₹{item.amount.toFixed(2)}</Text>
+            <Text style={styles.amountValue}>
+              ₹{Number(item?.amount ?? 0).toFixed(2)}
+            </Text>
           </View>
-          <View style={styles.timeContainer}>
+
+          <View style={styles.timeBox}>
             <Text style={styles.timeText}>
-              {dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {dateObj
+                ? dateObj.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : '--'}
             </Text>
           </View>
         </View>
@@ -73,68 +116,83 @@ export default function WithdrawalHistoryScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
-      <CommonHeader 
-        title="Withdrawal History" 
-        showBack 
-        showWallet={false} 
-        showCart={false} 
-        onBackPress={() => navigation.goBack()} 
+    <ScreenContainer>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+
+      <CommonHeader
+        title="Withdrawal History"
+        showBack
+        onBackPress={() => navigation.goBack()}
       />
 
+      {/* ❌ ERROR */}
+      {!loading && error && <Text style={styles.errorText}>{error}</Text>}
+
+      {/* 📄 LIST */}
       <FlatList
-        data={WITHDRAW_HISTORY}
-        keyExtractor={(item) => item.id}
+        data={list}
+        keyExtractor={item => item.id.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <View style={styles.summaryInfo}>
-            <Text style={styles.totalEntries}>
-              Showing {WITHDRAW_HISTORY.length} withdrawal requests
-            </Text>
-          </View>
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={onRefresh}
+            colors={[colors.primary]} // Android
+            tintColor={colors.primary} // iOS
+          />
+        }
+        ListEmptyComponent={
+          !loading && !error ? (
+            <Text style={styles.emptyText}>No withdrawal history found</Text>
+          ) : null
         }
       />
-    </SafeAreaView>
+
+      {/* 🔄 INITIAL LOADER */}
+      {loading && list.length === 0 && (
+        <ActivityIndicator
+          size="large"
+          color={colors.primary}
+          style={{ marginTop: 40 }}
+        />
+      )}
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC', // Very light grey to make white cards pop
-  },
   listContent: {
     padding: 20,
     paddingBottom: 40,
   },
-  summaryInfo: {
-    marginBottom: 20,
-  },
-  totalEntries: {
-    fontSize: 14,
-    color: '#64748B',
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 40,
+    color: colors.textLight,
     fontWeight: '600',
   },
+  errorText: {
+    textAlign: 'center',
+    marginTop: 40,
+    color: colors.error,
+    fontWeight: '700',
+  },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    backgroundColor: colors.card,
+    borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    // Soft shadow
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 1,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
     paddingBottom: 12,
@@ -148,7 +206,7 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1E293B',
+    color: colors.text,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -166,28 +224,27 @@ const styles = StyleSheet.create({
   cardBody: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
   },
   amountLabel: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: colors.textLight,
     fontWeight: '600',
-    marginBottom: 2,
   },
   amountValue: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#0F172A',
+    color: colors.text,
   },
-  timeContainer: {
-    backgroundColor: '#F1F5F9',
+  timeBox: {
+    backgroundColor: colors.resultBackground,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    alignSelf: 'flex-end',
   },
   timeText: {
     fontSize: 11,
-    color: '#64748B',
     fontWeight: '700',
+    color: colors.textLight,
   },
 });

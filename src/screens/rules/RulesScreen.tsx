@@ -1,7 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Dimensions,
+  Platform,
+} from 'react-native';
 import CommonHeader from '@/components/CommonHeader';
 import colors from '@/theme/colors';
+import ScreenContainer from '@/components/ScreenContainer';
 
 const { width } = Dimensions.get('window');
 
@@ -25,7 +33,7 @@ export default function RulesScreen({ navigation }: any) {
     },
     {
       title: 'Prize Distribution',
-      text: 'Winnings are credited to the participant\'s account within 24 hours of the draw. Participants can withdraw their winnings at any time.',
+      text: "Winnings are credited to the participant's account within 24 hours of the draw. Participants can withdraw their winnings at any time.",
     },
     {
       title: 'Responsible Gaming',
@@ -38,14 +46,13 @@ export default function RulesScreen({ navigation }: any) {
   ];
 
   return (
-    <View style={styles.container}>
+    <ScreenContainer>
       {/* COMMON HEADER */}
       <CommonHeader
-        title="Game Rules"
+        title="Draw Results"
         showBack
-        walletAmount="2,450"
-        onBackPress={() => navigation.goBack()}
-        showCart={false} // Hide cart on this screen
+        showWallet={false}
+        // showCart={false}
       />
 
       <ScrollView
@@ -57,22 +64,18 @@ export default function RulesScreen({ navigation }: any) {
 
         {rules.map((rule, index) => (
           <View key={index} style={styles.card}>
-            <Text style={styles.ruleTitle}>{index + 1}. {rule.title}</Text>
+            <Text style={styles.ruleTitle}>
+              {index + 1}. {rule.title}
+            </Text>
             <Text style={styles.ruleText}>{rule.text}</Text>
           </View>
         ))}
-
       </ScrollView>
-    </View>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.backgroundLight, // white background
-    paddingTop: Platform.OS === 'android' ? 0 : 0,
-  },
   scroll: {
     flex: 1,
     paddingHorizontal: 16,
@@ -81,7 +84,7 @@ const styles = StyleSheet.create({
   mainTitle: {
     fontSize: width * 0.06,
     fontWeight: '800',
-    color: colors.textDark,
+    color: colors.text,
     marginBottom: 20,
   },
   card: {
@@ -103,7 +106,7 @@ const styles = StyleSheet.create({
   },
   ruleText: {
     fontSize: width * 0.038,
-    color: colors.textDark,
+    color: colors.text,
     lineHeight: 22,
   },
 });

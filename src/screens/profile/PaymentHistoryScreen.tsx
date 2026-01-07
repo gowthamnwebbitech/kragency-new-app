@@ -1,217 +1,317 @@
-import React from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   StatusBar,
-  SafeAreaView,
-  Dimensions,
-  Platform,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useDispatch, useSelector } from 'react-redux';
+
 import CommonHeader from '@/components/CommonHeader';
+import ScreenContainer from '@/components/ScreenContainer';
 import colors from '@/theme/colors';
 
-const { width } = Dimensions.get('window');
+import { fetchPaymentHistoryThunk } from '@/features/paymentHistory/paymentHistoryThunk';
+import { RootState, AppDispatch } from '@/app/store';
+import { PaymentHistoryItem } from '@/features/paymentHistory/paymentHistoryTypes';
 
-// Data matches your input precisely
-const TRANSACTIONS = [
-  { id: '1', date: '2025-12-18T15:19:00', desc: 'wee deposit credited to your wallet via UPI', amount: 1000.00, type: 'deposit' },
-  { id: '2', date: '2025-12-18T15:04:00', desc: 'Check status for the manual verification', amount: 500.00, type: 'deposit' },
-  { id: '3', date: '2025-12-15T04:33:00', desc: 'Withdraw approved by admin. Amount sent to registered bank.', amount: 500.00, type: 'withdrawal' },
-  { id: '4', date: '2025-12-06T22:10:00', desc: 'Winning for order item #2524. Congratulations on your win!', amount: 50.00, type: 'winning' },
-  { id: '5', date: '2025-12-02T22:11:00', desc: 'Winning for order item #373. Congrats!', amount: 50.00, type: 'winning' },
-  { id: '6', date: '2025-11-30T22:12:00', desc: 'Winning for order item #196', amount: 50.00, type: 'winning' },
-  { id: '7', date: '2025-11-28T22:10:00', desc: 'Winning for order item #96. Great job!', amount: 50.00, type: 'winning' },
-  { id: '8', date: '2025-11-28T17:38:00', desc: 'Manual Credit added by support team for account correction', amount: 550.00, type: 'deposit' },
-];
+const LIMIT = 15;
 
 export default function PaymentHistoryScreen({ navigation }: any) {
-  
-  const getIconData = (type: string) => {
-    switch (type) {
-      case 'winning': 
-        return { name: 'award', color: '#10B981', bg: '#F0FDF4' };
-      case 'withdrawal': 
-        return { name: 'external-link', color: '#64748B', bg: '#F8FAFC' };
-      default: 
-        return { name: 'plus-circle', color: colors.primary, bg: '#FFF1F2' };
-    }
+  const dispatch = useDispatch<AppDispatch>();
+
+  const { list, loading, pagination } = useSelector(
+    (state: RootState) => state.paymentHistory,
+  );
+
+  const [page, setPage] = useState(1);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isMoreLoading, setIsMoreLoading] = useState(false);
+
+  /* ================= LOAD DATA ================= */
+  const loadData = useCallback(
+    async (pageNum: number) => {
+      await dispatch(fetchPaymentHistoryThunk({ page: pageNum, limit: LIMIT }));
+    },
+    [dispatch],
+  );
+
+  useEffect(() => {
+    loadData(1);
+  }, []);
+
+  /* ================= REFRESH ================= */
+  const onRefresh = async () => {
+    setRefreshing(true);
+    setPage(1);
+    await loadData(1);
+    setRefreshing(false);
   };
 
-  const renderItem = ({ item }: { item: typeof TRANSACTIONS[0] }) => {
-    const iconData = getIconData(item.type);
-    const dateObj = new Date(item.date);
-    const isNegative = item.type === 'withdrawal';
-    
+  /* ================= PAGINATION ================= */
+  const handleLoadMore = () => {
+    if (loading || isMoreLoading) return;
+    if (!pagination || page >= pagination.last_page) return;
+
+    const next = page + 1;
+    setPage(next);
+    setIsMoreLoading(true);
+
+    dispatch(fetchPaymentHistoryThunk({ page: next, limit: LIMIT })).finally(
+      () => setIsMoreLoading(false),
+    );
+  };
+
+  /* ================= HELPERS ================= */
+  const getTransactionUI = (item: PaymentHistoryItem) => {
+    const isDebit = item.type?.toLowerCase() === 'debit';
+    const isWinning = item.description?.toLowerCase().includes('winning');
+
+    if (isDebit) {
+      return {
+        icon: 'arrow-up-right',
+        color: '#EF4444',
+        bg: '#FEF2F2',
+        sign: '-',
+      };
+    }
+    if (isWinning) {
+      return {
+        icon: 'trello',
+        color: '#10B981',
+        bg: '#ECFDF5',
+        sign: '+',
+      };
+    }
+    return {
+      icon: 'arrow-down-left',
+      color: '#3B82F6',
+      bg: '#EFF6FF',
+      sign: '+',
+    };
+  };
+
+  const formatDate = (dateString: string) => {
+    const d = new Date(dateString);
+    const date = d.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    const time = d.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return { date, time };
+  };
+
+  /* ================= RENDER ITEM ================= */
+  const renderItem = ({
+    item,
+    index,
+  }: {
+    item: PaymentHistoryItem;
+    index: number;
+  }) => {
+    const ui = getTransactionUI(item);
+    const { date, time } = formatDate(item.date);
+    const isDebit = ui.sign === '-';
+
     return (
-      <View style={styles.transactionCard}>
-        {/* Left Icon Area */}
-        <View style={[styles.iconContainer, { backgroundColor: iconData.bg }]}>
-          <Feather name={iconData.name as any} size={18} color={iconData.color} />
+      <Animated.View
+        entering={FadeInDown.delay(index * 30).springify()}
+        style={styles.card}
+      >
+        <View style={[styles.iconWrapper, { backgroundColor: ui.bg }]}>
+          <Feather name={ui.icon as any} size={18} color={ui.color} />
         </View>
 
-        {/* Middle Content Area (Two Lines Supported) */}
-        <View style={styles.textContainer}>
-          <Text style={styles.description} numberOfLines={2}>
-            {item.desc}
+        <View style={styles.content}>
+          <Text style={styles.desc} numberOfLines={1}>
+            {item.description || 'General Transaction'}
           </Text>
-          <Text style={styles.dateText}>
-            {dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} • {dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
-        </View>
-
-        {/* Right Amount Area */}
-        <View style={styles.amountContainer}>
-          <Text style={[
-            styles.amountValue, 
-            { color: isNegative ? '#0F172A' : '#10B981' }
-          ]}>
-            {isNegative ? '-' : '+'}₹{item.amount.toFixed(0)}
-          </Text>
-          <View style={[styles.statusPill, { backgroundColor: iconData.bg }]}>
-             <Text style={[styles.statusLabel, { color: iconData.color }]}>{item.type}</Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.metaText}>{date}</Text>
+            <View style={styles.dotDivider} />
+            <Text style={styles.metaText}>{time}</Text>
           </View>
         </View>
-      </View>
+
+        <View style={styles.amountSide}>
+          <Text
+            style={[
+              styles.amountText,
+              { color: isDebit ? '#0F172A' : '#10B981' },
+            ]}
+          >
+            {ui.sign}₹{Math.abs(Number(item.amount)).toLocaleString('en-IN')}
+          </Text>
+          <Text style={[styles.typeLabel, { color: ui.color }]}>
+            {item.type?.toUpperCase()}
+          </Text>
+        </View>
+      </Animated.View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <ScreenContainer style={{ backgroundColor: '#FFF' }}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
+
       <CommonHeader
-        title="Transaction History"
+        title="Payment History"
         showBack
         showCart={false}
-        showWallet={false}  
-        walletAmount="2,450"
-        onBackPress={() => navigation.goBack()}
+        showWallet={false}
       />
 
-      {/* Hero Balance Section */}
-      <View style={styles.heroSection}>
-        <Text style={styles.heroLabel}>Total Balance</Text>
-        <Text style={styles.heroAmount}>2,450.00</Text>
-        <View style={styles.verifiedBadge}>
-           <Feather name="shield" size={10} color="#10B981" />
-           <Text style={styles.verifiedText}>Secured Wallet</Text>
+      {loading && page === 1 ? (
+        <View style={styles.centerLoader}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loaderText}>Loading transactions...</Text>
         </View>
-      </View>
-
-      <FlatList
-        data={TRANSACTIONS}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listPadding}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={<Text style={styles.listHeader}>Recent Statements</Text>}
-      />
-    </SafeAreaView>
+      ) : (
+        <FlatList
+          data={list}
+          keyExtractor={(item, index) => `tx-${item.id || index}`}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <Text style={styles.sectionHeader}>Recent Activity</Text>
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isMoreLoading ? (
+              <ActivityIndicator
+                style={{ marginVertical: 20 }}
+                color={colors.primary}
+              />
+            ) : (
+              <View style={{ height: 40 }} />
+            )
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyCircle}>
+                <Feather name="list" size={30} color="#CBD5E1" />
+              </View>
+              <Text style={styles.emptyText}>No Transactions Yet</Text>
+            </View>
+          }
+        />
+      )}
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
+  listContent: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
   },
-  heroSection: {
-    alignItems: 'center',
-    paddingVertical: 30,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 8,
-    borderBottomColor: '#F8FAFC',
-  },
-  heroLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: '800',
     color: '#94A3B8',
     textTransform: 'uppercase',
-    letterSpacing: 1.5,
+    letterSpacing: 1,
+    marginBottom: 15,
+    marginTop: 10,
   },
-  heroAmount: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#0F172A',
-    marginTop: 6,
-  },
-  verifiedBadge: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginTop: 10,
-    gap: 4,
-  },
-  verifiedText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#10B981',
-    textTransform: 'uppercase',
-  },
-  listPadding: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  listHeader: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginTop: 25,
-    marginBottom: 15,
-  },
-  transactionCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start', // Important for 2-line alignment
-    paddingVertical: 18,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F8FAFC',
   },
-  iconContainer: {
+  iconWrapper: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
+    alignItems: 'center',
   },
-  textContainer: {
+  content: {
     flex: 1,
     paddingHorizontal: 15,
   },
-  description: {
+  desc: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#334155',
-    lineHeight: 20, // Better readability for 2 lines
+    color: '#1E293B',
+    marginBottom: 4,
   },
-  dateText: {
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaText: {
     fontSize: 12,
     color: '#94A3B8',
-    marginTop: 4,
     fontWeight: '500',
   },
-  amountContainer: {
+  dotDivider: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 8,
+  },
+  amountSide: {
     alignItems: 'flex-end',
   },
-  amountValue: {
+  amountText: {
     fontSize: 15,
     fontWeight: '800',
   },
-  statusPill: {
-    marginTop: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  statusLabel: {
+  typeLabel: {
     fontSize: 9,
-    fontWeight: '900',
-    textTransform: 'uppercase',
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  centerLoader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loaderText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 100,
+  },
+  emptyCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 15,
+  },
+  emptyText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#94A3B8',
   },
 });
