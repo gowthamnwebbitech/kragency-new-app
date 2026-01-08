@@ -5,14 +5,14 @@ import { ENV } from '@/env';
 import { logout } from '@/features/auth/authSlice';
 
 export const axiosClient = axios.create({
-  baseURL: ENV.API_BASE_URL, 
+  baseURL: ENV.API_BASE_URL,
   timeout: 15000,
   headers: {
+    Accept: 'application/json',
     'Content-Type': 'application/json',
   },
 });
 
-/* 🔐 REQUEST INTERCEPTOR */
 axiosClient.interceptors.request.use(
   async config => {
     const reduxToken = store.getState().auth.token;
@@ -20,13 +20,16 @@ axiosClient.interceptors.request.use(
     const token = reduxToken || storageToken;
 
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${token}`,
+      };
     }
 
     console.log(
       '➡️',
       config.method?.toUpperCase(),
-      `${config.baseURL}${config.url}`
+      config.url
     );
 
     return config;
@@ -41,13 +44,18 @@ axiosClient.interceptors.response.use(
     return response;
   },
   async error => {
+    if (!error.response) {
+      console.error('🌐 NETWORK ERROR — server unreachable');
+      return Promise.reject(error);
+    }
+
     console.error(
       '❌',
       error.config?.url,
-      error.response?.status
+      error.response.status
     );
 
-    if (error.response?.status === 401) {
+    if (error.response.status === 401) {
       await AsyncStorage.multiRemove(['authToken', 'authUser']);
       store.dispatch(logout());
     }

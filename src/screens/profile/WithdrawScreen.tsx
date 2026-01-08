@@ -84,7 +84,8 @@ export default function WithdrawScreen({ navigation }: any) {
       <CommonHeader
         title="Withdraw Funds"
         showBack
-        onBackPress={() => navigation.goBack()}
+        showCart={false}
+        showWallet={false}
       />
 
       <KeyboardAvoidingView

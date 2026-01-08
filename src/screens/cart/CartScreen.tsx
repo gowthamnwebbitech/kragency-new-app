@@ -1,161 +1,128 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
+  Alert,
+  Platform,
   StatusBar,
 } from 'react-native';
-import Feather from 'react-native-vector-icons/Feather';
+import { useSelector, useDispatch } from 'react-redux';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { RootState } from '@/app/store';
+import { removeFromCart, clearCart } from '@/features/cart/cartSlice';
 import CommonHeader from '@/components/CommonHeader';
-import colors from '@/theme/colors';
 import ScreenContainer from '@/components/ScreenContainer';
+import colors from '@/theme/colors';
 
-// Data consistent with your Jackpot theme
-const DUMMY_CART = [
-  {
-    id: '1',
-    date: '2026-01-03',
-    provider: '3D JACKPOT',
-    gameName: 'ABC-SUPER',
-    quantity: 2,
-    numbers: '123',
-    betAmount: 22,
-    type: 'Direct'
-  },
-  {
-    id: '2',
-    date: '2026-01-03',
-    provider: 'LUCKY STRIKE',
-    gameName: 'XYZ-MEGA',
-    quantity: 5,
-    numbers: '789',
-    betAmount: 50,
-    type: 'Box'
-  }
-];
+export default function CartScreen() {
+  const dispatch = useDispatch();
+  const { items, totalAmount } = useSelector((state: RootState) => state.cart);
 
-export default function CartScreen({ navigation }: any) {
-  const [cart, setCart] = useState(DUMMY_CART);
-
-  const removeItem = (id: string) => {
-    setCart((prev) => prev.filter((item) => item.id !== id));
+  const handleClearCart = () => {
+    Alert.alert('Clear Cart', 'Remove all items?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear All', style: 'destructive', onPress: () => dispatch(clearCart()) },
+    ]);
   };
 
-  const totalAmount = cart.reduce((acc, item) => acc + (item.betAmount * item.quantity), 0);
+  const handleDelete = (cartId: string) => {
+    Alert.alert('Remove Bet', 'Remove this entry?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => dispatch(removeFromCart(cartId)) },
+    ]);
+  };
 
-  const renderItem = ({ item }: { item: typeof DUMMY_CART[0] }) => (
-    <View style={styles.card}>
-      {/* Brand Accent Sidebar */}
-      <View style={[styles.cardAccent, { backgroundColor: colors.primary }]} />
-      
-      <View style={styles.cardMain}>
-        <View style={styles.cardHeader}>
-          <View style={{ flex: 1 }}>
-            <View style={styles.providerRow}>
-              <Text style={[styles.providerText, { color: colors.primary }]}>{item.provider}</Text>
-              <View style={styles.dot} />
-              <Text style={styles.typeText}>{item.type}</Text>
+  const renderItem = ({ item }: { item: any }) => (
+    <View style={styles.ticketCard}>
+      {/* Top Section */}
+      <View style={styles.cardHeader}>
+        <View style={styles.gameInfo}>
+          <View style={styles.iconCircle}>
+            <Icon name="ticket-confirmation" size={20} color={colors.primary} />
+          </View>
+          <View>
+            <Text style={styles.gameNameText}>{item.gameName}</Text>
+            <Text style={styles.providerSubText}>{item.provider || '3D JACKPOT'}</Text>
+          </View>
+        </View>
+        <TouchableOpacity onPress={() => handleDelete(item.cartId)} style={styles.deleteCircle}>
+          <Icon name="trash-can-outline" size={18} color="#EF4444" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Ticket Divider Line */}
+      <View style={styles.dividerWrapper}>
+        <View style={styles.leftPunch} />
+        <View style={styles.dashedLine} />
+        <View style={styles.rightPunch} />
+      </View>
+
+      {/* Bottom Section */}
+      <View style={styles.cardBody}>
+        <View style={styles.statRow}>
+          <View style={styles.statDetail}>
+            <Text style={styles.label}>NUMBERS</Text>
+            <View style={styles.numberBadge}>
+              <Text style={styles.numberText}>{item.digits}</Text>
             </View>
-            <Text style={styles.gameName}>{item.gameName}</Text>
           </View>
           
-          <TouchableOpacity 
-            style={styles.deleteBtn} 
-            onPress={() => removeItem(item.id)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Feather name="trash-2" size={18} color={colors.error} />
-          </TouchableOpacity>
-        </View>
+          <View style={styles.statDetail}>
+            <Text style={styles.label}>QTY</Text>
+            <Text style={styles.valueText}>{item.quantity}</Text>
+          </View>
 
-        {/* Detailed Info Grid */}
-        <View style={styles.detailsGrid}>
-          <View style={styles.gridItem}>
-            <Text style={styles.gridLabel}>Numbers</Text>
-            <Text style={styles.gridValue}>{item.numbers}</Text>
+          <View style={styles.statDetail}>
+            <Text style={styles.label}>AMOUNT</Text>
+            <Text style={styles.amountText}>₹{item.price * item.quantity}</Text>
           </View>
-          <View style={styles.gridItem}>
-            <Text style={styles.gridLabel}>Quantity</Text>
-            <Text style={styles.gridValue}>x{item.quantity}</Text>
-          </View>
-          <View style={[styles.gridItem, { alignItems: 'flex-end' }]}>
-            <Text style={styles.gridLabel}>Subtotal</Text>
-            <Text style={[styles.subtotalValue, { color: colors.primary }]}>₹{item.betAmount * item.quantity}</Text>
-          </View>
-        </View>
-
-        <View style={styles.cardFooter}>
-          <View style={styles.footerInfo}>
-            <Feather name="calendar" size={12} color={colors.textLight} />
-            <Text style={styles.footerText}>{item.date}</Text>
-          </View>
-          <Text style={styles.footerText}>Rate: ₹{item.betAmount}</Text>
         </View>
       </View>
     </View>
   );
 
   return (
-    <ScreenContainer>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
-      <CommonHeader 
-        title="Review Bets" 
-       showBack
-        showCart={false}
-        showWallet={true}  
-        walletAmount="2,450"
-        onBackPress={() => navigation.goBack()}
-        cartCount={cart.length} 
-      />
+    <ScreenContainer style={{ backgroundColor: '#F1F5F9' }}>
+      <StatusBar barStyle="dark-content" />
+      <CommonHeader title="My Cart" showBack showCart={false} />
 
       <FlatList
-        data={cart}
-        keyExtractor={(item) => item.id}
+        data={items}
+        keyExtractor={(item) => item.cartId}
         renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listScroll}
+        ListHeaderComponent={items.length > 0 ? (
+          <View style={styles.listHeader}>
+             <Text style={styles.summaryCount}>{items.length} ACTIVE BETS</Text>
+             <TouchableOpacity onPress={handleClearCart}>
+                <Text style={styles.clearAllText}>Clear All Items</Text>
+             </TouchableOpacity>
+          </View>
+        ) : null}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconBg}>
-              <Feather name="shopping-cart" size={40} color={colors.disabled} />
-            </View>
-            <Text style={styles.emptyTitle}>Cart is Empty</Text>
-            <Text style={styles.emptySub}>No active bets found in your bag.</Text>
-            <TouchableOpacity 
-              style={[styles.backToHome, { borderColor: colors.primary }]}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={[styles.backToHomeText, { color: colors.primary }]}>Go Back</Text>
-            </TouchableOpacity>
+          <View style={styles.emptyWrap}>
+            <Icon name="cart-variant" size={70} color="#CBD5E1" />
+            <Text style={styles.emptyTitle}>Your cart is empty</Text>
+            <Text style={styles.emptySub}>Add some lucky numbers to start!</Text>
           </View>
         }
       />
 
-      {cart.length > 0 && (
-        <View style={styles.checkoutFooter}>
-          <View style={styles.summaryRow}>
+      {items.length > 0 && (
+        <View style={styles.compactFooter}>
+          <View style={styles.footerContent}>
             <View>
-              <Text style={styles.summaryLabel}>Total Bets</Text>
-              <Text style={styles.summaryCount}>{cart.length} Items</Text>
+              <Text style={styles.totalLabel}>TOTAL PAYABLE</Text>
+              <Text style={styles.totalAmount}>₹{totalAmount.toLocaleString()}</Text>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.summaryLabel}>Payable Amount</Text>
-              <Text style={styles.summaryTotal}>₹{totalAmount.toLocaleString()}</Text>
-            </View>
+            <TouchableOpacity style={styles.payBtn} activeOpacity={0.8}>
+              <Text style={styles.payText}>CONFIRM & PAY</Text>
+              <Icon name="chevron-right" size={20} color="#FFF" />
+            </TouchableOpacity>
           </View>
-          
-          <TouchableOpacity 
-            style={[styles.payButton, { backgroundColor: colors.success }]}
-            activeOpacity={0.8}
-            onPress={() => console.log("Proceed to pay")}
-          >
-            <Text style={styles.payButtonText}>Confirm & Place Bet</Text>
-            <Feather name="arrow-right" size={20} color="#FFF" />
-          </TouchableOpacity>
         </View>
       )}
     </ScreenContainer>
@@ -163,193 +130,115 @@ export default function CartScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background, 
+  listScroll: { padding: 16, paddingBottom: 120 },
+  listHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    marginBottom: 16,
+    paddingHorizontal: 4
   },
-  listContent: {
-    padding: 16,
-    paddingBottom: 160,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    marginBottom: 12,
-    flexDirection: 'row',
-    overflow: 'hidden',
-    // High-quality subtle shadow
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-  },
-  cardAccent: {
-    width: 4,
-  },
-  cardMain: {
-    flex: 1,
-    padding: 12,
+  summaryCount: { fontSize: 11, fontWeight: '900', color: '#64748B', letterSpacing: 1 },
+  clearAllText: { fontSize: 12, fontWeight: '700', color: '#EF4444' },
+
+  /* BEST TICKET CARD DESIGN */
+  ticketCard: {
+    backgroundColor: '#FFF',
+    marginBottom: 16,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
+      android: { elevation: 1 },
+    }),
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 10,
+    alignItems: 'center',
+    padding: 16,
   },
-  providerRow: {
+  gameInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconCircle: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    backgroundColor: '#FFF1F2', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  gameNameText: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
+  providerSubText: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+  deleteCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+
+  /* Ticket Divider Styling */
+  dividerWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 2,
+    justifyContent: 'center',
+    height: 20,
+    overflow: 'hidden'
   },
-  providerText: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+  leftPunch: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#F1F5F9', marginLeft: -10 },
+  rightPunch: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#F1F5F9', marginRight: -10 },
+  dashedLine: { 
+    flex: 1, 
+    height: 1, 
+    borderWidth: 1, 
+    borderColor: '#E2E8F0', 
+    borderStyle: 'dashed', 
+    marginHorizontal: 5 
   },
-  dot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: colors.disabled,
-    marginHorizontal: 6,
+
+  cardBody: { padding: 16, paddingTop: 10 },
+  statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statDetail: { gap: 4 },
+  label: { fontSize: 10, fontWeight: '800', color: '#94A3B8', letterSpacing: 0.5 },
+  numberBadge: { 
+    backgroundColor: '#EEF2FF', 
+    paddingHorizontal: 10, 
+    paddingVertical: 4, 
+    borderRadius: 8 
   },
-  typeText: {
-    fontSize: 11,
-    color: colors.textLight,
-    fontWeight: '600',
-  },
-  gameName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  deleteBtn: {
-    padding: 4,
-  },
-  detailsGrid: {
-    flexDirection: 'row',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    padding: 10,
-    justifyContent: 'space-between',
-  },
-  gridItem: {
-    flex: 1,
-  },
-  gridLabel: {
-    fontSize: 10,
-    color: colors.textLight,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  gridValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  subtotalValue: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  footerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  footerText: {
-    fontSize: 11,
-    color: colors.textLight,
-    fontWeight: '500',
-  },
-  checkoutFooter: {
+  numberText: { fontSize: 14, fontWeight: '900', color: '#4F46E5' },
+  valueText: { fontSize: 15, fontWeight: '800', color: '#334155' },
+  amountText: { fontSize: 16, fontWeight: '900', color: '#1E293B' },
+
+  /* COMPACT FOOTER */
+  compactFooter: {
     position: 'absolute',
     bottom: 0,
     width: '100%',
-    backgroundColor: colors.card,
-    padding: 20,
-    paddingBottom: 30, // Extra padding for safe area
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    backgroundColor: '#FFF',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
-  summaryRow: {
+  footerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 18,
+    alignItems: 'center',
   },
-  summaryLabel: {
-    fontSize: 12,
-    color: colors.textLight,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  summaryCount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  summaryTotal: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: colors.text,
-  },
-  payButton: {
+  totalLabel: { fontSize: 10, fontWeight: '900', color: '#94A3B8', letterSpacing: 0.5 },
+  totalAmount: { fontSize: 22, fontWeight: '900', color: '#0F172A' },
+  payBtn: {
+    backgroundColor: '#16A34A', 
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 14,
-    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
   },
-  payButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    marginTop: 80,
-  },
-  emptyIconBg: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  emptySub: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 5,
-  },
-  backToHome: {
-    marginTop: 25,
-    borderWidth: 1.5,
-    paddingHorizontal: 30,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  backToHomeText: {
-    fontWeight: '700',
-  },
+  payText: { color: '#FFF', fontSize: 14, fontWeight: '900' },
+
+  emptyWrap: { flex: 1, alignItems: 'center', marginTop: 100 },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: '#64748B', marginTop: 16 },
+  emptySub: { fontSize: 14, color: '#94A3B8', marginTop: 4 },
 });

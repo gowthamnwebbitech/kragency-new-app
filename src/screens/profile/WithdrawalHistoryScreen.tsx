@@ -20,9 +20,11 @@ import { fetchWithdrawHistoryThunk } from '@/features/withdrawHistory/withdrawHi
 export default function WithdrawalHistoryScreen({ navigation }: any) {
   const dispatch = useDispatch<AppDispatch>();
 
-  const { list = [], loading, error } = useSelector(
-    (state: RootState) => state.withdrawHistory
-  );
+  const {
+    list = [],
+    loading,
+    error,
+  } = useSelector((state: RootState) => state.withdrawHistory);
 
   /* 🔁 INITIAL LOAD */
   useEffect(() => {
@@ -122,7 +124,8 @@ export default function WithdrawalHistoryScreen({ navigation }: any) {
       <CommonHeader
         title="Withdrawal History"
         showBack
-        onBackPress={() => navigation.goBack()}
+        showCart={false}
+        showWallet={false}
       />
 
       {/* ❌ ERROR */}

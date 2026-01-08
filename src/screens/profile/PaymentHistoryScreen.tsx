@@ -160,14 +160,12 @@ export default function PaymentHistoryScreen({ navigation }: any) {
   };
 
   return (
-    <ScreenContainer style={{ backgroundColor: '#FFF' }}>
+    <ScreenContainer>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <CommonHeader
         title="Payment History"
-        showBack
-        showCart={false}
-        showWallet={false}
+       showBack showCart={false} showWallet={false}
       />
 
       {loading && page === 1 ? (

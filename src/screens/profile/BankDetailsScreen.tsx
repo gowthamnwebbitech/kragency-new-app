@@ -262,8 +262,8 @@ const Divider = () => <View style={styles.divider} />;
 
 export default function BankDetailsScreen() {
   return (
-    <ScreenContainer style={{ backgroundColor: '#FFF' }}>
-      <CommonHeader title="" showBack />
+    <ScreenContainer>
+      <CommonHeader title="Bank Details" showBack showCart={false} showWallet={false} />
       <BankDetailsContent />
     </ScreenContainer>
   );

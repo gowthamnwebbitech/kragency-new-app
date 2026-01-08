@@ -9,6 +9,7 @@ import WithdrawalHistoryScreen from '@/screens/profile/WithdrawalHistoryScreen';
 import BankDetailsScreen from '@/screens/profile/BankDetailsScreen';
 import CartScreen from '@/screens/cart/CartScreen';
 import LoginScreen from '@/screens/auth/LoginScreen';
+import GameScreen from '@/screens/slot/GameScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -26,6 +27,7 @@ export default function AppNavigator() {
         name="WithdrawHistory"
         component={WithdrawalHistoryScreen}
       />
+      <Stack.Screen name="GameScreen" component={GameScreen} />
       <Stack.Screen name="BankDetails" component={BankDetailsScreen} />
     </Stack.Navigator>
   );

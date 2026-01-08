@@ -8,6 +8,9 @@ import withdrawHistoryReducer from '@/features/withdrawHistory/withdrawHistorySl
 import bankDetailsReducer from '@/features/bankDetails/bankDetailsSlice';
 import profileReducer from '@/features/userProfile/profileSlice';
 import walletReducer from '@/features/Walletheader/walletSlice';
+import homeReducer from '@/features/home/homeSlice';
+import playNowReducer from '@/features/playNow/playNowSlice';
+import cartReducer from '@/features/cart/cartSlice'; 
 
 export const store = configureStore({
   reducer: {
@@ -19,7 +22,10 @@ export const store = configureStore({
     withdrawHistory: withdrawHistoryReducer,
     bankDetails: bankDetailsReducer,
     profile: profileReducer,
-     wallet: walletReducer,
+    wallet: walletReducer,
+    home: homeReducer,
+    playNow: playNowReducer,
+    cart: cartReducer,
 
   },
   middleware: getDefaultMiddleware =>

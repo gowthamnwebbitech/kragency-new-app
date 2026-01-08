@@ -203,7 +203,12 @@ export default function OrderHistoryScreen() {
   return (
     <ScreenContainer style={{ backgroundColor: '#F1F5F9' }}>
       <StatusBar barStyle="dark-content" />
-      <CommonHeader title="Order History" showBack />
+      <CommonHeader
+        title="Order History"
+        showBack
+        showCart={false}
+        showWallet={false}
+      />
 
       <View style={styles.stickyHeader}>
         <View style={styles.searchContainer}>

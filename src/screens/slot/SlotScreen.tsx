@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,304 +7,245 @@ import {
   TouchableOpacity,
   Dimensions,
   Animated,
-  Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import Feather from 'react-native-vector-icons/Feather';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/app/store';
-import { useNavigation } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/Feather'; // Ensure react-native-vector-icons is installed
 
-// Professional Colors from your theme
 import colors from '@/theme/colors';
 import CommonHeader from '@/components/CommonHeader';
 import ScreenContainer from '@/components/ScreenContainer';
+import { RootState, AppDispatch } from '@/app/store';
+import { fetchSlots, fetchGames } from '@/features/playNow/playNowThunk';
+import { clearGames } from '@/features/playNow/playNowSlice';
+import { SlotUI } from '@/features/playNow/playNowTypes';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 56) / 2;
-
-interface Slot {
-  time: string;
-  status: 'closed' | 'active';
-}
-
-const SLOTS: Slot[] = [
-  { time: '10:00 AM', status: 'closed' },
-  { time: '11:00 AM', status: 'closed' },
-  { time: '12:00 PM', status: 'closed' },
-  { time: '01:00 PM', status: 'closed' },
-  { time: '02:00 PM', status: 'active' },
-  { time: '03:00 PM', status: 'active' },
-  { time: '04:00 PM', status: 'active' },
-  { time: '05:00 PM', status: 'active' },
-  { time: '06:00 PM', status: 'active' },
-  { time: '07:00 PM', status: 'active' },
-];
+const SPACING = 12;
+const CARD_WIDTH = (width - 40 - SPACING) / 2; // Exact 2-column width
 
 export default function SlotGameScreen() {
-  const navigation = useNavigation();
-  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const dispatch = useDispatch<AppDispatch>();
 
-  const animatedScales = useRef(
-    SLOTS.reduce((acc, slot) => {
-      acc[slot.time] = new Animated.Value(1);
-      return acc;
-    }, {} as Record<string, Animated.Value>)
-  ).current;
+  const providerId: number = route.params?.providerId;
+  const { slots, slotsLoading } = useSelector((state: RootState) => state.playNow);
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+
+  const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
+  const slideUp = useRef(new Animated.Value(100)).current;
+
+  const slotsSafe = Array.isArray(slots) ? slots : [];
 
   useEffect(() => {
-    const firstActive = SLOTS.find(slot => slot.status === 'active');
-    if (firstActive) setSelectedSlot(firstActive.time);
-  }, []);
+    if (providerId) dispatch(fetchSlots(providerId));
+  }, [providerId]);
 
-  const handleSlotPress = (slot: Slot) => {
-    if (!isAuthenticated) {
-      navigation.navigate('Login' as never);
-      return;
-    }
-    if (slot.status === 'active') {
-      Animated.sequence([
-        Animated.timing(animatedScales[slot.time], { toValue: 0.96, duration: 100, useNativeDriver: true }),
-        Animated.spring(animatedScales[slot.time], { toValue: 1, friction: 4, useNativeDriver: true })
-      ]).start();
-      setSelectedSlot(slot.time);
-    }
+  useEffect(() => {
+    const firstActive = slotsSafe.find(s => s.status === 'active');
+    if (firstActive) setSelectedSlotId(firstActive.slot_time_id);
+  }, [slotsSafe]);
+
+  useEffect(() => {
+    Animated.spring(slideUp, {
+      toValue: selectedSlotId ? 0 : 100,
+      useNativeDriver: true,
+      friction: 8,
+    }).start();
+  }, [selectedSlotId]);
+
+  const handleSlotPress = (slot: SlotUI) => {
+    if (!isAuthenticated) return navigation.navigate('Login');
+    if (slot.status !== 'active') return;
+    setSelectedSlotId(slot.slot_time_id);
   };
 
-  const renderSlot = ({ item }: { item: Slot }) => {
-    const isSelected = selectedSlot === item.time;
+  const handleContinue = async () => {
+    if (!selectedSlotId) return;
+    dispatch(clearGames());
+    await dispatch(fetchGames({ providerId, slotTimeId: selectedSlotId })).unwrap();
+    navigation.navigate('GameScreen');
+  };
+
+  const renderSlot = ({ item }: { item: SlotUI }) => {
+    const isSelected = selectedSlotId === item.slot_time_id;
     const isActive = item.status === 'active';
 
     return (
       <TouchableOpacity
-        activeOpacity={isActive ? 0.8 : 1}
+        activeOpacity={0.9}
         onPress={() => handleSlotPress(item)}
-        style={styles.cardWrapper}
+        style={[
+          styles.card,
+          isSelected && styles.selectedCard,
+          !isActive && styles.lockedCard
+        ]}
       >
-        <Animated.View style={{ transform: [{ scale: animatedScales[item.time] }] }}>
-          <View style={[
-            styles.slotCard,
-            { backgroundColor: colors.card },
-            isActive && styles.activeCardShadow,
-            isSelected && { borderColor: colors.primary, borderWidth: 2 },
-            !isActive && styles.lockedCard
-          ]}>
-            
-            <View style={[
-                styles.statusPill, 
-                { backgroundColor: isActive ? (isSelected ? colors.primary : colors.secondary + '15') : '#E2E8F0' }
-            ]}>
-              <Feather 
-                name={isActive ? "play" : "lock"} 
-                size={10} 
-                color={isActive ? (isSelected ? '#FFF' : colors.primary) : '#94A3B8'} 
-              />
-              <Text style={[
-                styles.statusText, 
-                { color: isActive ? (isSelected ? '#FFF' : colors.primary) : '#64748B' }
-              ]}>
-                {isActive ? 'ACTIVE' : 'CLOSED'}
-              </Text>
-            </View>
+        <View style={styles.cardHeader}>
+          <View style={[styles.indicator, isActive ? styles.online : styles.offline]} />
+          <Text style={[styles.statusText, isSelected && { color: '#FFF' }]}>
+            {isActive ? 'AVAILABLE' : 'LOCKED'}
+          </Text>
+        </View>
 
-            <Text style={[styles.slotTime, { color: isSelected ? colors.primary : colors.text }]}>
-              {item.time}
-            </Text>
+        <Icon 
+          name={isActive ? "zap" : "lock"} 
+          size={20} 
+          color={isSelected ? "#FFF" : isActive ? colors.primary : "#94A3B8"} 
+          style={styles.icon}
+        />
 
-            <Text style={styles.entryText}>{isActive ? 'ENTRY OPEN' : 'ENDED'}</Text>
-          </View>
-        </Animated.View>
-        
+        <Text style={[styles.timeText, isSelected && styles.whiteText]}>
+          {item.slot_time}
+        </Text>
+
         {isSelected && (
-            <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
-                <Feather name="check" size={12} color="#FFF" />
-            </View>
+          <View style={styles.checkBadge}>
+            <Icon name="check" size={10} color={colors.primary} />
+          </View>
         )}
       </TouchableOpacity>
     );
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer style={{ backgroundColor: '#FFF' }}>
       <StatusBar barStyle="dark-content" />
-      <CommonHeader
-        title="Gaming Hub"
-        showBack
-        walletAmount={isAuthenticated ? '2,450' : 'Login'}
-        onBackPress={() => navigation.goBack()}
-      />
+      <CommonHeader title="Gaming Hub" showBack />
 
-      <FlatList
-        data={SLOTS}
-        keyExtractor={item => item.time}
-        renderItem={renderSlot}
-        numColumns={2}
-        ListHeaderComponent={() => (
-            <View style={styles.headerArea}>
-                {/* Game Name Label */}
-                <View style={styles.gameBadge}>
-                    <Text style={styles.gameBadgeText}>3D JACKPOT</Text>
-                </View>
-                
-                <View style={styles.scheduleTextContainer}>
-                    <Text style={[styles.headerSub, { color: colors.textLight }]}>TODAY'S SCHEDULE</Text>
-                    <Text style={[styles.headerMain, { color: colors.text }]}>Choose a Slot</Text>
-                </View>
-            </View>
-        )}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
-
-      {selectedSlot && (
-        <View style={styles.bottomBar}>
-            <LinearGradient
-                colors={[colors.primary, '#BE123C']}
-                style={styles.playBtnGradient}
-            >
-                <TouchableOpacity style={styles.playBtnTouch}>
-                    <Text style={styles.playBtnText}>JOIN {selectedSlot} SLOT</Text>
-                    <Feather name="chevron-right" size={20} color="#FFF" />
-                </TouchableOpacity>
-            </LinearGradient>
+      {slotsLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
+      ) : (
+        <FlatList
+          data={slotsSafe}
+          keyExtractor={item => item.slot_time_id.toString()}
+          renderItem={renderSlot}
+          numColumns={2}
+          columnWrapperStyle={{ justifyContent: 'space-between' }}
+          contentContainerStyle={styles.listContainer}
+          ListHeaderComponent={<Text style={styles.headerTitle}>Select Your Schedule</Text>}
+        />
       )}
+
+      <Animated.View style={[styles.fabWrapper, { transform: [{ translateY: slideUp }] }]}>
+        <TouchableOpacity onPress={handleContinue} activeOpacity={0.8}>
+          <LinearGradient
+            colors={[colors.primary, '#9F1239']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.fab}
+          >
+            <Text style={styles.fabText}>CONFIRM SELECTION</Text>
+            <Icon name="arrow-right" size={18} color="#FFF" style={{ marginLeft: 8 }} />
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  headerArea: {
-    paddingHorizontal: 4,
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  listContainer: { padding: 20, paddingBottom: 120 },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1E293B',
     marginBottom: 20,
-    marginTop: 15,
-    alignItems: 'flex-start',
+    letterSpacing: -0.5,
   },
-  gameBadge: {
-    backgroundColor: '#FFF1F2',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FECDD3',
-    marginBottom: 12,
-  },
-  gameBadgeText: {
-    color: '#E11D48',
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  scheduleTextContainer: {
-    marginLeft: 4,
-  },
-  headerSub: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
-  headerMain: {
-    fontSize: 24,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  listContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 120,
-  },
-  cardWrapper: {
+  card: {
     width: CARD_WIDTH,
-    marginRight: 16,
-    marginBottom: 16,
-  },
-  slotCard: {
-    borderRadius: 22,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: SPACING,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: '#F1F5F9',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  selectedCard: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    elevation: 8,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
   lockedCard: {
     opacity: 0.5,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
+    borderStyle: 'dashed',
   },
-  activeCardShadow: {
-    ...Platform.select({
-      ios: {
-        shadowColor: '#E11D48',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  statusPill: {
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    alignSelf: 'flex-start',
     marginBottom: 12,
   },
+  indicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  online: { backgroundColor: '#10B981' },
+  offline: { backgroundColor: '#94A3B8' },
   statusText: {
     fontSize: 9,
-    fontWeight: '900',
-    marginLeft: 4,
-  },
-  slotTime: {
-    fontSize: 19,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  entryText: {
-    fontSize: 10,
-    color: '#94A3B8',
     fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
   },
+  icon: { marginBottom: 8 },
+  timeText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#334155',
+  },
+  whiteText: { color: '#FFF' },
   checkBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    top: -5,
+    right: -5,
+    backgroundColor: '#FFF',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFF',
-    elevation: 4,
+    elevation: 2,
   },
-  bottomBar: {
+  fabWrapper: {
     position: 'absolute',
     bottom: 30,
-    left: 24,
-    right: 24,
+    left: 20,
+    right: 20,
   },
-  playBtnGradient: {
-    borderRadius: 20,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 15,
-    elevation: 10,
-  },
-  playBtnTouch: {
-    height: 60,
+  fab: {
+    height: 58,
+    borderRadius: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  playBtnText: {
+  fabText: {
     color: '#FFF',
-    fontSize: 16,
     fontWeight: '800',
-    marginRight: 8,
-    letterSpacing: 0.5,
-  }
+    fontSize: 15,
+    letterSpacing: 1,
+  },
 });

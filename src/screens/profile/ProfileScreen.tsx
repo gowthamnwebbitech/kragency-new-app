@@ -17,7 +17,7 @@ import Animated, {
   FadeInDown,
   ZoomIn,
 } from 'react-native-reanimated';
-
+import { logout } from '@/features/auth/authSlice';
 import CommonHeader from '@/components/CommonHeader';
 import ScreenContainer from '@/components/ScreenContainer';
 import colors from '@/theme/colors';
@@ -46,6 +46,21 @@ export default function ProfileScreen({ navigation }: any) {
     }
   }, [error, success, dispatch]);
 
+  const handleLogout = () => {
+    dispatch(logout());
+
+    Toast.show({
+      type: 'success',
+      text1: 'Logged out',
+      text2: 'You have been logged out successfully',
+    });
+
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
+  };
+
   const menuOptions = [
     { icon: 'shopping-bag', label: 'Order History', screen: 'OrderHistory' },
     { icon: 'credit-card', label: 'Payment History', screen: 'PaymentHistory' },
@@ -59,13 +74,9 @@ export default function ProfileScreen({ navigation }: any) {
   ];
 
   return (
-    <ScreenContainer style={{ backgroundColor: '#FFF' }}>
+    <ScreenContainer>
       <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
-      <CommonHeader
-        title="Profile"
-        showWallet={false}
-        showBack
-      />
+      <CommonHeader title="Profile" showBack showCart={false} showWallet={false} />
 
       <ScrollView
         contentContainerStyle={{ paddingVertical: 35 }}
@@ -183,14 +194,19 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* 🚪 SIGN OUT ACTION */}
+        {/* SIGN OUT ACTION */}
         <Animated.View entering={FadeInDown.delay(400)} style={styles.footer}>
-          <TouchableOpacity style={styles.logoutAction} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.logoutAction}
+            activeOpacity={0.7}
+            onPress={handleLogout}
+          >
             <View style={styles.logoutIconWrapper}>
               <Feather name="log-out" size={14} color={colors.error} />
             </View>
             <Text style={styles.logoutText}>Log Out Account</Text>
           </TouchableOpacity>
+
           <Text style={styles.versionText}>Version 2.0.4 (Build 2026)</Text>
         </Animated.View>
       </ScrollView>
