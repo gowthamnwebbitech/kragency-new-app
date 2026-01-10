@@ -94,7 +94,11 @@ export default function CommonHeader({
 
   return (
     <View style={styles.headerOuter}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+      <StatusBar 
+        barStyle="dark-content" 
+        backgroundColor="#FFF" 
+        translucent={true} 
+      />
 
       <View style={styles.container}>
         {/* ⬅️ LEFT SECTION */}

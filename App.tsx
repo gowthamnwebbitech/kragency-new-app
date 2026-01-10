@@ -29,7 +29,7 @@ function AppBootstrap() {
 export default function App() {
   return (
     <Provider store={store}>
-      <SafeAreaProvider>
+      <SafeAreaProvider style={{ backgroundColor: '#FFF' }}>
         <AppBootstrap />
 
         {/* 🔔 GLOBAL TOAST */}

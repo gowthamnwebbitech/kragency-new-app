@@ -7,10 +7,12 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useDispatch, useSelector } from 'react-redux';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
 
 import CommonHeader from '@/components/CommonHeader';
 import ScreenContainer from '@/components/ScreenContainer';
@@ -24,6 +26,7 @@ const LIMIT = 15;
 
 export default function PaymentHistoryScreen({ navigation }: any) {
   const dispatch = useDispatch<AppDispatch>();
+  const insets = useSafeAreaInsets(); // 🛡️ Get safe area dimensions
 
   const { list, loading, pagination } = useSelector(
     (state: RootState) => state.paymentHistory,
@@ -43,7 +46,7 @@ export default function PaymentHistoryScreen({ navigation }: any) {
 
   useEffect(() => {
     loadData(1);
-  }, []);
+  }, [loadData]);
 
   /* ================= REFRESH ================= */
   const onRefresh = async () => {
@@ -160,12 +163,17 @@ export default function PaymentHistoryScreen({ navigation }: any) {
   };
 
   return (
-    <ScreenContainer>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
+    <ScreenContainer style={{ backgroundColor: '#FFFFFF' }}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FFFFFF"
+        translucent={false}
+      />
       <CommonHeader
         title="Payment History"
-       showBack showCart={false} showWallet={false}
+        showBack
+        showCart={false}
+        showWallet={false}
       />
 
       {loading && page === 1 ? (
@@ -178,7 +186,11 @@ export default function PaymentHistoryScreen({ navigation }: any) {
           data={list}
           keyExtractor={(item, index) => `tx-${item.id || index}`}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
+          // 🛡️ DYNAMIC BOTTOM PADDING: ensures content isn't hidden by gesture bars
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: Math.max(insets.bottom, 20) + 20 } 
+          ]}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <Text style={styles.sectionHeader}>Recent Activity</Text>
@@ -198,9 +210,7 @@ export default function PaymentHistoryScreen({ navigation }: any) {
                 style={{ marginVertical: 20 }}
                 color={colors.primary}
               />
-            ) : (
-              <View style={{ height: 40 }} />
-            )
+            ) : null
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -235,7 +245,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
+    borderBottomColor: '#F1F5F9', // Slightly more visible than F8FAFC
   },
   iconWrapper: {
     width: 44,

@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   StatusBar,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -24,6 +23,8 @@ import {
   withdrawThunk,
 } from '@/features/withdraw/withdrawThunks';
 import { clearMessage } from '@/features/withdraw/withdrawSlice';
+import Toast from 'react-native-toast-message';
+
 
 export default function WithdrawScreen({ navigation }: any) {
   const dispatch = useDispatch<AppDispatch>();
@@ -46,48 +47,66 @@ export default function WithdrawScreen({ navigation }: any) {
 
   useEffect(() => {
     if (error) {
-      Alert.alert('Error', error, [
-        {
-          text: 'OK',
-          onPress: () => dispatch(clearMessage()),
-        },
-      ]);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error,
+      });
+
+      dispatch(clearMessage());
       return;
     }
 
     if (withdrawSuccess) {
-      Alert.alert('Success', withdrawSuccess, [
-        {
-          text: 'OK',
-          onPress: () => {
-            dispatch(clearMessage());
-            setAmount('');
-            dispatch(fetchWalletBonusThunk());
-          },
-        },
-      ]);
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: withdrawSuccess,
+      });
+
+      dispatch(clearMessage());
+      setAmount('');
+      dispatch(fetchWalletBonusThunk());
     }
   }, [error, withdrawSuccess, dispatch]);
 
   const handleWithdraw = () => {
     const numAmount = Number(amount);
-    if (!numAmount || numAmount < minWithdraw)
-      return Alert.alert('Error', `Minimum withdrawal is ₹${minWithdraw}`);
-    if (numAmount > walletBalance)
-      return Alert.alert('Error', 'Insufficient wallet balance');
+
+    if (!numAmount || numAmount < minWithdraw) {
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Amount',
+        text2: `Minimum withdrawal is ₹${minWithdraw}`,
+      });
+      return;
+    }
+
+    if (numAmount > walletBalance) {
+      Toast.show({
+        type: 'error',
+        text1: 'Insufficient Balance',
+        text2: 'Your wallet balance is too low',
+      });
+      return;
+    }
+
     dispatch(withdrawThunk({ amount: numAmount }));
   };
 
   return (
     <ScreenContainer>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
       <CommonHeader
         title="Withdraw Funds"
         showBack
         showCart={false}
         showWallet={false}
       />
-
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}

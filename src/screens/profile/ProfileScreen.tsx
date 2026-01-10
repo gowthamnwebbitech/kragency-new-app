@@ -75,9 +75,17 @@ export default function ProfileScreen({ navigation }: any) {
 
   return (
     <ScreenContainer>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
-      <CommonHeader title="Profile" showBack showCart={false} showWallet={false} />
-
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
+      <CommonHeader
+        title="Profile"
+        showBack
+        showCart={false}
+        showWallet={false}
+      />
       <ScrollView
         contentContainerStyle={{ paddingVertical: 35 }}
         showsVerticalScrollIndicator={false}

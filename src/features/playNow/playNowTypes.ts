@@ -47,6 +47,7 @@ export interface SlotUI {
 export interface GameGroup {
   title: string;
   price: number;
+  provider: string;
   winAmount: number;
   digits: GameSlotItem[];
 }

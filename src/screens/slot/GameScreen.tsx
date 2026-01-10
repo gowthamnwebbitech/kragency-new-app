@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,13 @@ import {
   Platform,
   useWindowDimensions,
   StatusBar,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import colors from '@/theme/colors';
 import CommonHeader from '@/components/CommonHeader';
@@ -25,6 +25,7 @@ import { RootState } from '@/app/store';
 import { GameGroup } from '@/features/playNow/playNowTypes';
 import { checkWalletApi } from '@/api/playNowApi';
 import { addToCart } from '@/features/cart/cartSlice';
+import Toast from 'react-native-toast-message';
 
 type BetData = {
   [gameKey: string]: { qty: number; digits: string[] };
@@ -34,17 +35,18 @@ export default function GameScreen() {
   const { width } = useWindowDimensions();
   const dispatch = useDispatch();
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
 
-  // Safe Redux selection with optional chaining and fallbacks
   const { games = [] } = useSelector((state: RootState) => state.playNow || {});
-  const cartItems = useSelector((state: RootState) => state.cart?.items || []);
+  const { items: cartItems, totalAmount: currentCartTotal } = useSelector(
+    (state: RootState) => state.cart,
+  );
   const cartItemsCount = cartItems.length;
 
   const [betData, setBetData] = useState<BetData>({});
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const inputRefs = useRef<{ [key: string]: TextInput[] }>({});
 
-  // Scaling logic
   const inputBoxSize = width * 0.11;
 
   const cleanLabel = useCallback((name: string) => {
@@ -69,10 +71,6 @@ export default function GameScreen() {
   ) => {
     const cleanedValue = value.replace(/[^0-9]/g, '');
 
-    if (cleanedValue.length === 1 && digitIndex < labelsLength - 1) {
-      inputRefs.current[key]?.[digitIndex + 1]?.focus();
-    }
-
     setBetData(prev => {
       const current = prev[key] || {
         qty: 1,
@@ -82,6 +80,10 @@ export default function GameScreen() {
       newDigits[digitIndex] = cleanedValue;
       return { ...prev, [key]: { ...current, digits: newDigits } };
     });
+
+    if (cleanedValue.length === 1 && digitIndex < labelsLength - 1) {
+      inputRefs.current[key]?.[digitIndex + 1]?.focus();
+    }
   };
 
   const onAddPress = async (
@@ -90,49 +92,108 @@ export default function GameScreen() {
     labelsLength: number,
   ) => {
     const current = betData[gameKey];
+    if (!current) return;
 
-    if (
-      !current ||
-      current.digits.filter(d => d !== '').length !== labelsLength
-    ) {
-      Alert.alert('Required', 'Please fill all number boxes.');
+    /* -----------------------------
+     * VALIDATION
+     * ----------------------------- */
+    if (current.digits.filter(d => d !== '').length !== labelsLength) {
+      Toast.show({
+        type: 'error',
+        text1: 'Required',
+        text2: 'Please fill all number boxes.',
+      });
       return;
     }
 
     setLoadingKey(gameKey);
+
     try {
-      const gameId = item.digits[0].id;
-      const totalAmount = item.price * current.qty;
+      const gameInfo = item.digits[0];
 
-      const res = await checkWalletApi({
-        game_id: gameId,
-        quantity: current.qty,
-        amount: totalAmount,
-      });
+      /* -----------------------------
+       * API PAYLOAD
+       * ----------------------------- */
+      const finalPayload = {
+        cart: cartItems.map(cartItem => ({
+          type: cartItem.digits.length.toString(),
+          game_id: cartItem.gameId.toString(),
+          game_label: cartItem.gameName,
+          digits: cartItem.digits,
+          quantity: cartItem.quantity.toString(),
+          amount: cartItem.price.toString(),
+          is_box: 'false',
+          total: (cartItem.price * cartItem.quantity).toString(),
+        })),
+        newItem: {
+          type: labelsLength.toString(),
+          game_id: gameInfo.id.toString(),
+          game_label: gameInfo.digit_master.name,
+          digits: current.digits.join(''),
+          quantity: current.qty.toString(),
+          amount: item.price.toString(),
+          is_box: 'false',
+          total: (item.price * current.qty).toString(),
+        },
+      };
 
-      if (res.success) {
+      console.log('--- API PAYLOAD ---', JSON.stringify(finalPayload, null, 2));
+
+      const res = await checkWalletApi(finalPayload as any);
+
+      if (res?.success) {
+        const selectedProvider = item.provider;
+
         dispatch(
           addToCart({
             cartId: Math.random().toString(36).substr(2, 9),
-            gameId: gameId,
-            gameName: item.digits[0].digit_master.name,
+            gameId: gameInfo.id,
+            gameName: gameInfo.digit_master.name,
             price: item.price,
             quantity: current.qty,
             digits: current.digits.join(''),
             winAmount: item.winAmount,
+            provider: selectedProvider,
           }),
         );
 
         setBetData(prev => ({
           ...prev,
-          [gameKey]: { qty: 1, digits: new Array(labelsLength).fill('') },
+          [gameKey]: {
+            qty: 1,
+            digits: new Array(labelsLength).fill(''),
+          },
         }));
-        Alert.alert('Success', 'Bet added to cart!');
-      } else {
-        Alert.alert('Balance Issue', res.message || 'Insufficient balance');
+
+        inputRefs.current[gameKey]?.forEach(ref => ref?.blur());
+
+        Toast.show({
+          type: 'success',
+          text1: 'Added to Cart',
+          text2: `${selectedProvider} bet added successfully`,
+        });
+
+        return;
       }
-    } catch (error) {
-      Alert.alert('Error', 'Could not verify wallet. Please try again.');
+
+      Toast.show({
+        type: 'error',
+        text1: 'Balance Issue',
+        text2: res?.message ?? 'Insufficient balance',
+      });
+    } catch (err: any) {
+
+      const message =
+        err?.response?.data?.message ||
+        'Network request failed. Please try again.';
+
+      Toast.show({
+        type: 'error',
+        text1: 'Balance Issue',
+        text2: message,
+      });
+
+      console.error('API Error:', err);
     } finally {
       setLoadingKey(null);
     }
@@ -143,7 +204,6 @@ export default function GameScreen() {
     const digitMaster = gameInfo.digit_master;
     const gameKey = `${digitMaster.name}_${item.price}`;
     const labels = cleanLabel(digitMaster.name);
-
     const currentBet = betData[gameKey] || {
       qty: 1,
       digits: new Array(labels.length).fill(''),
@@ -153,6 +213,7 @@ export default function GameScreen() {
       <View style={styles.cardContainer}>
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
+            <Text style={styles.providerLabel}>{item.provider}</Text>
             <Text style={styles.digitTitleText}>{digitMaster.name} Entry</Text>
             <Text style={styles.winPrizeText}>
               Win ₹{item.winAmount.toLocaleString()}
@@ -163,11 +224,8 @@ export default function GameScreen() {
             <Text style={styles.priceVal}>₹{item.price}</Text>
           </View>
         </View>
-
         <View style={styles.compactDivider} />
-
         <View style={styles.cardBody}>
-          {/* LEFT: Digit Grid */}
           <View style={styles.digitGrid}>
             {labels.map((char, idx) => (
               <View key={idx} style={styles.inputStack}>
@@ -175,7 +233,7 @@ export default function GameScreen() {
                 <View
                   style={[
                     styles.boxFrame,
-                    { width: inputBoxSize, height: inputBoxSize + 6 },
+                    { width: inputBoxSize, height: inputBoxSize + 8 },
                   ]}
                 >
                   <TextInput
@@ -192,15 +250,14 @@ export default function GameScreen() {
                       handleDigitChange(gameKey, idx, v, labels.length)
                     }
                     placeholder="0"
-                    placeholderTextColor={colors.placeholder}
+                    placeholderTextColor="#CBD5E1"
                     textAlign="center"
+                    underlineColorAndroid="transparent"
                   />
                 </View>
               </View>
             ))}
           </View>
-
-          {/* RIGHT: Controls */}
           <View style={styles.controlsSide}>
             <View style={styles.miniStepper}>
               <TouchableOpacity
@@ -217,17 +274,13 @@ export default function GameScreen() {
                 <Icon name="plus" size={14} color={colors.textLight} />
               </TouchableOpacity>
             </View>
-
             <TouchableOpacity
-              activeOpacity={0.8}
               style={styles.addBtn}
               onPress={() => onAddPress(item, gameKey, labels.length)}
               disabled={loadingKey === gameKey}
             >
               <LinearGradient
                 colors={[colors.primary, colors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
                 style={styles.btnGradient}
               >
                 {loadingKey === gameKey ? (
@@ -244,27 +297,42 @@ export default function GameScreen() {
   };
 
   return (
-    <ScreenContainer>
-      <StatusBar barStyle="dark-content" />
+    <ScreenContainer style={{ backgroundColor: '#FFFFFF' }}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FFFFFF"
+        translucent={false}
+      />
       <CommonHeader title="Place Bet" showBack />
-
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
         <FlatList
           data={games}
-          keyExtractor={(item, index) => `${item.title}-${index}`}
+          keyExtractor={(item, index) => `${item.provider}-${index}`}
           renderItem={renderGameCard}
-          contentContainerStyle={styles.listPadding}
-          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.listPadding,
+            { paddingBottom: 120 + insets.bottom },
+          ]}
         />
       </KeyboardAvoidingView>
 
-      <View style={styles.bottomBar}>
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            height: 85 + insets.bottom,
+            paddingBottom: Math.max(insets.bottom, 16),
+          },
+        ]}
+      >
         <View style={styles.totalBlock}>
-          <Text style={styles.totalCap}>ITEMS IN CART</Text>
-          <Text style={styles.totalNum}>{cartItemsCount} Bets</Text>
+          <Text style={styles.totalCap}>CUMULATIVE TOTAL</Text>
+          <Text style={styles.totalNum}>
+            ₹{currentCartTotal.toLocaleString('en-IN')}
+          </Text>
         </View>
         <TouchableOpacity
           style={styles.cartAction}
@@ -274,7 +342,7 @@ export default function GameScreen() {
             <Text style={styles.badgeText}>{cartItemsCount}</Text>
           </View>
           <Text style={styles.cartText}>VIEW CART</Text>
-          <Icon name="basket-outline" size={24} color="#FFF" />
+          <Icon name="basket-outline" size={22} color="#FFF" />
         </TouchableOpacity>
       </View>
     </ScreenContainer>
@@ -282,24 +350,26 @@ export default function GameScreen() {
 }
 
 const styles = StyleSheet.create({
-  listPadding: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120 },
+  listPadding: { paddingHorizontal: 16, paddingTop: 12 },
   cardContainer: {
-    backgroundColor: colors.card,
+    backgroundColor: '#FFF',
     borderRadius: 20,
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.inputBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
+    borderColor: '#F1F5F9',
     elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  providerLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: colors.primary,
+    textTransform: 'uppercase',
   },
   digitTitleText: {
     fontSize: 10,
@@ -320,12 +390,11 @@ const styles = StyleSheet.create({
   priceLabel: { fontSize: 8, fontWeight: '800', color: colors.textLight },
   priceVal: { fontSize: 14, fontWeight: '900', color: colors.primary },
   compactDivider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 10 },
-
   cardBody: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    flexWrap: 'wrap', // Ensures responsiveness on small devices
+    flexWrap: 'wrap',
   },
   digitGrid: { flexDirection: 'row', alignItems: 'center' },
   inputStack: { alignItems: 'center', marginRight: 6 },
@@ -336,25 +405,21 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   boxFrame: {
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAFC',
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: colors.inputBorder,
+    borderColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
-    overflow: 'hidden',
   },
   textInput: {
     width: '100%',
     height: '100%',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: colors.text,
-    padding: 0,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
+    textAlign: 'center',
   },
-
   controlsSide: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
   miniStepper: {
     flexDirection: 'row',
@@ -363,7 +428,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 2,
     borderWidth: 1,
-    borderColor: colors.inputBorder,
+    borderColor: '#E2E8F0',
     marginRight: 8,
   },
   stepBtn: {
@@ -378,41 +443,30 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
   },
-
-  addBtn: { borderRadius: 10, overflow: 'hidden', margin: 'end' },
+  addBtn: { borderRadius: 10, overflow: 'hidden' },
   btnGradient: { paddingHorizontal: 18, paddingVertical: 9 },
   addBtnText: { color: '#FFF', fontWeight: '900', fontSize: 12 },
-
   bottomBar: {
     position: 'absolute',
     bottom: 0,
     width: '100%',
-    backgroundColor: colors.card,
-    padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    backgroundColor: '#FFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: colors.inputBorder,
-    elevation: 20,
+    borderTopColor: '#F1F5F9',
   },
   totalBlock: { flex: 1 },
-  totalCap: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: colors.textLight,
-    letterSpacing: 0.5,
-  },
+  totalCap: { fontSize: 9, fontWeight: '800', color: colors.textLight },
   totalNum: { fontSize: 24, fontWeight: '900', color: colors.text },
   cartAction: {
-    backgroundColor: colors.text, // Dark Navy
+    backgroundColor: '#0F172A',
     paddingHorizontal: 16,
     height: 50,
     borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
   },
   cartText: { color: '#FFF', fontWeight: '900', fontSize: 13, marginRight: 8 },
   badge: {
@@ -425,7 +479,8 @@ const styles = StyleSheet.create({
     left: -5,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
+    borderWidth: 2,
+    borderColor: '#FFF',
   },
-  badgeText: { color: '#FFF', fontSize: 10, fontWeight: 'bold' },
+  badgeText: { color: '#FFF', fontSize: 9, fontWeight: 'bold' },
 });

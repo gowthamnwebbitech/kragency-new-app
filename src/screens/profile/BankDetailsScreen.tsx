@@ -43,7 +43,7 @@ function BankDetailsContent() {
   useEffect(() => {
     dispatch(fetchBankDetailsThunk());
   }, [dispatch]);
-
+ 
   useEffect(() => {
     if (data) setForm(data);
   }, [data]);

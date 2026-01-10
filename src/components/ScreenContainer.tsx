@@ -1,17 +1,22 @@
 import React from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet } from 'react-native';
-import colors from '@/theme/colors';
+import { SafeAreaView, Edge } from 'react-native-safe-area-context';
+import { StyleSheet, ViewStyle } from 'react-native';
+
+interface Props {
+  children: React.ReactNode;
+  style?: ViewStyle;
+  edges?: Edge[]; // Allow overriding edges per screen
+}
 
 export default function ScreenContainer({
   children,
-}: {
-  children: React.ReactNode;
-}) {
+  style,
+  edges = ['top'], 
+}: Props) {
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={['top']}
+    <SafeAreaView 
+      style={[styles.container, style]} 
+      edges={edges}
     >
       {children}
     </SafeAreaView>
@@ -21,6 +26,6 @@ export default function ScreenContainer({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAFC', 
   },
 });

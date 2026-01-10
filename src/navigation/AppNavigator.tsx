@@ -10,6 +10,7 @@ import BankDetailsScreen from '@/screens/profile/BankDetailsScreen';
 import CartScreen from '@/screens/cart/CartScreen';
 import LoginScreen from '@/screens/auth/LoginScreen';
 import GameScreen from '@/screens/slot/GameScreen';
+import OrderSuccessScreen from '@/screens/orderplaced/OrderSuccessScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -29,6 +30,7 @@ export default function AppNavigator() {
       />
       <Stack.Screen name="GameScreen" component={GameScreen} />
       <Stack.Screen name="BankDetails" component={BankDetailsScreen} />
+      <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
     </Stack.Navigator>
   );
 }

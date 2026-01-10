@@ -9,11 +9,13 @@ import {
   Animated,
   StatusBar,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/Feather'; // Ensure react-native-vector-icons is installed
+import Icon from 'react-native-vector-icons/Feather';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import colors from '@/theme/colors';
 import CommonHeader from '@/components/CommonHeader';
@@ -25,16 +27,21 @@ import { SlotUI } from '@/features/playNow/playNowTypes';
 
 const { width } = Dimensions.get('window');
 const SPACING = 12;
-const CARD_WIDTH = (width - 40 - SPACING) / 2; // Exact 2-column width
+const CARD_WIDTH = (width - 40 - SPACING) / 2;
 
 export default function SlotGameScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const dispatch = useDispatch<AppDispatch>();
+  const insets = useSafeAreaInsets(); // 🛡️ Important for bottom padding
 
   const providerId: number = route.params?.providerId;
-  const { slots, slotsLoading } = useSelector((state: RootState) => state.playNow);
-  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+  const { slots, slotsLoading } = useSelector(
+    (state: RootState) => state.playNow,
+  );
+  const isAuthenticated = useSelector(
+    (state: RootState) => state.auth.isAuthenticated,
+  );
 
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const slideUp = useRef(new Animated.Value(100)).current;
@@ -43,7 +50,7 @@ export default function SlotGameScreen() {
 
   useEffect(() => {
     if (providerId) dispatch(fetchSlots(providerId));
-  }, [providerId]);
+  }, [providerId, dispatch]);
 
   useEffect(() => {
     const firstActive = slotsSafe.find(s => s.status === 'active');
@@ -52,11 +59,12 @@ export default function SlotGameScreen() {
 
   useEffect(() => {
     Animated.spring(slideUp, {
-      toValue: selectedSlotId ? 0 : 100,
+      toValue: selectedSlotId ? 0 : 150, // Hide deeper if nothing selected
       useNativeDriver: true,
       friction: 8,
+      tension: 40,
     }).start();
-  }, [selectedSlotId]);
+  }, [selectedSlotId, slideUp]);
 
   const handleSlotPress = (slot: SlotUI) => {
     if (!isAuthenticated) return navigation.navigate('Login');
@@ -67,7 +75,9 @@ export default function SlotGameScreen() {
   const handleContinue = async () => {
     if (!selectedSlotId) return;
     dispatch(clearGames());
-    await dispatch(fetchGames({ providerId, slotTimeId: selectedSlotId })).unwrap();
+    await dispatch(
+      fetchGames({ providerId, slotTimeId: selectedSlotId }),
+    ).unwrap();
     navigation.navigate('GameScreen');
   };
 
@@ -82,20 +92,25 @@ export default function SlotGameScreen() {
         style={[
           styles.card,
           isSelected && styles.selectedCard,
-          !isActive && styles.lockedCard
+          !isActive && styles.lockedCard,
         ]}
       >
         <View style={styles.cardHeader}>
-          <View style={[styles.indicator, isActive ? styles.online : styles.offline]} />
+          <View
+            style={[
+              styles.indicator,
+              isActive ? styles.online : styles.offline,
+            ]}
+          />
           <Text style={[styles.statusText, isSelected && { color: '#FFF' }]}>
             {isActive ? 'AVAILABLE' : 'LOCKED'}
           </Text>
         </View>
 
-        <Icon 
-          name={isActive ? "zap" : "lock"} 
-          size={20} 
-          color={isSelected ? "#FFF" : isActive ? colors.primary : "#94A3B8"} 
+        <Icon
+          name={isActive ? 'zap' : 'lock'}
+          size={22}
+          color={isSelected ? '#FFF' : isActive ? colors.primary : '#94A3B8'}
           style={styles.icon}
         />
 
@@ -113,8 +128,14 @@ export default function SlotGameScreen() {
   };
 
   return (
-    <ScreenContainer style={{ backgroundColor: '#FFF' }}>
-      <StatusBar barStyle="dark-content" />
+    <ScreenContainer style={{ backgroundColor: '#FFFFFF' }}>
+      {/* ⚪ Solid White Status Bar */}
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FFFFFF"
+        translucent={false}
+      />
+      
       <CommonHeader title="Gaming Hub" showBack />
 
       {slotsLoading ? (
@@ -128,12 +149,27 @@ export default function SlotGameScreen() {
           renderItem={renderSlot}
           numColumns={2}
           columnWrapperStyle={{ justifyContent: 'space-between' }}
-          contentContainerStyle={styles.listContainer}
-          ListHeaderComponent={<Text style={styles.headerTitle}>Select Your Schedule</Text>}
+          contentContainerStyle={[
+            styles.listContainer,
+            // 💡 FIX: Bottom padding clears the FAB + Home Indicator
+            { paddingBottom: 130 + insets.bottom } 
+          ]}
+          ListHeaderComponent={
+            <Text style={styles.headerTitle}>Select Your Schedule</Text>
+          }
         />
       )}
 
-      <Animated.View style={[styles.fabWrapper, { transform: [{ translateY: slideUp }] }]}>
+      {/* 🔘 Confirm Selection FAB */}
+      <Animated.View
+        style={[
+          styles.fabWrapper, 
+          { 
+            transform: [{ translateY: slideUp }],
+            bottom: 20 + insets.bottom // Moves up on gesture-based phones
+          }
+        ]}
+      >
         <TouchableOpacity onPress={handleContinue} activeOpacity={0.8}>
           <LinearGradient
             colors={[colors.primary, '#9F1239']}
@@ -142,7 +178,12 @@ export default function SlotGameScreen() {
             style={styles.fab}
           >
             <Text style={styles.fabText}>CONFIRM SELECTION</Text>
-            <Icon name="arrow-right" size={18} color="#FFF" style={{ marginLeft: 8 }} />
+            <Icon
+              name="arrow-right"
+              size={18}
+              color="#FFF"
+              style={{ marginLeft: 8 }}
+            />
           </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
@@ -152,7 +193,10 @@ export default function SlotGameScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContainer: { padding: 20, paddingBottom: 120 },
+  listContainer: { 
+    padding: 20,
+    backgroundColor: '#F8FAFC' // Keep content area light grey
+  },
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
@@ -162,26 +206,35 @@ const styles = StyleSheet.create({
   },
   card: {
     width: CARD_WIDTH,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFF',
     borderRadius: 20,
-    padding: 16,
+    padding: 18,
     marginBottom: SPACING,
     borderWidth: 1,
     borderColor: '#F1F5F9',
     alignItems: 'center',
     position: 'relative',
+    // Soft Shadow
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
+      android: { elevation: 2 },
+    }),
   },
   selectedCard: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
     elevation: 8,
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 10,
+    shadowRadius: 12,
   },
   lockedCard: {
-    opacity: 0.5,
+    opacity: 0.6,
     backgroundColor: '#F1F5F9',
     borderStyle: 'dashed',
   },
@@ -207,7 +260,7 @@ const styles = StyleSheet.create({
   },
   icon: { marginBottom: 8 },
   timeText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     color: '#334155',
   },
@@ -217,16 +270,16 @@ const styles = StyleSheet.create({
     top: -5,
     right: -5,
     backgroundColor: '#FFF',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 2,
+    elevation: 4,
+    shadowOpacity: 0.1,
   },
   fabWrapper: {
     position: 'absolute',
-    bottom: 30,
     left: 20,
     right: 20,
   },
@@ -236,15 +289,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: { elevation: 6 },
+    }),
   },
   fabText: {
     color: '#FFF',
-    fontWeight: '800',
+    fontWeight: '900',
     fontSize: 15,
     letterSpacing: 1,
   },

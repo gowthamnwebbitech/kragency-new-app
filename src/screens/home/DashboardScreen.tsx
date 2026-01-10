@@ -101,7 +101,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScreenContainer style={{ backgroundColor: '#F8FAFC' }}>
+    <ScreenContainer>
       <CommonHeader
         showCart={isAuthenticated}
         showWallet={isAuthenticated}
@@ -135,7 +135,6 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* ⭐ Featured Games Grid */}
           <SectionHeader title="Featured Games" showViewAll />
           
           <View style={styles.featuredGrid}>

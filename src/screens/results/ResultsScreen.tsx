@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 
 import colors from '@/theme/colors';
@@ -27,7 +27,6 @@ import { DrawResult } from '@/features/drawResult/drawResultTypes';
 const PAGE_SIZE = 12;
 
 export default function DrawResultsScreen() {
-  const navigation = useNavigation();
   const dispatch = useAppDispatch();
 
   const { list, loading } = useAppSelector(state => state.drawResults);
@@ -142,8 +141,12 @@ export default function DrawResultsScreen() {
   };
 
   return (
-    <ScreenContainer style={{ backgroundColor: '#FFF' }}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFF" />
+    <ScreenContainer>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
       <CommonHeader
         title="Draw Results"
         showBack

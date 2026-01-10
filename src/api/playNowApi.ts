@@ -1,9 +1,11 @@
 import { getApi, postApi } from '@/api/apiMethods';
 import { SlotApiResponse, GameApiResponse } from '@/features/playNow/playNowTypes';
 
+
 export const fetchSlotsApi = (providerId: number) => {
   return getApi<SlotApiResponse>(`/customer/play-now/${providerId}`);
 };
+
 
 export const fetchGamesApi = (
   providerId: number,
@@ -22,6 +24,18 @@ export interface WalletCheckResponse {
   available: { wallet: string; bonus: string };
 }
 
-export const checkWalletApi = (payload: { game_id: number; quantity: number; amount: number }) => {
+export interface WalletCheckPayload {
+  type: string;        
+  game_id: string;     
+  game_label: string;  // Name of the game (e.g., "XABC")
+  digits: string;      // The selected numbers (e.g., "1111")
+  quantity: string;    // Quantity as a string
+  amount: string;      // Unit price as a string
+  is_box: string;      // "true" or "false"
+  total: string;       // Cumulative total (Cart Total + New Item)
+}
+
+
+export const checkWalletApi = (payload: WalletCheckPayload) => {
   return postApi<WalletCheckResponse>(`/customer/check-wallet`, payload);
 };

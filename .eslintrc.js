@@ -17,13 +17,22 @@ module.exports = {
   ],
   plugins: ['@typescript-eslint', 'react'],
   rules: {
-    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    /* ================= TypeScript ================= */
+    '@typescript-eslint/no-unused-vars': [
+      'warn',
+      { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+    ],
     '@typescript-eslint/no-explicit-any': 'off',
-    'react/react-in-jsx-scope': 'off',
-    'react-hooks/exhaustive-deps': 'warn',
-    'no-console': 'warn',
 
-    // Prevent creating components inside render
+    /* ================= React ================= */
+    'react/react-in-jsx-scope': 'off', // React 17+
+    'react-hooks/exhaustive-deps': 'warn',
     'react/no-unstable-nested-components': ['error', { allowAsProps: true }],
+
+    /* ================= Console ================= */
+    'no-console': ['warn', { allow: ['warn', 'error'] }],
+
+    /* ================= React Native ================= */
+    'react-native/no-inline-styles': 'warn',
   },
 };

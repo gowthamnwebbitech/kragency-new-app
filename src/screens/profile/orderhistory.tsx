@@ -9,13 +9,14 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
-  Dimensions,
-  ScrollView, // ⬅️ Added missing ScrollView import
+  ScrollView,
+  Platform,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Fix for bottom spacing
 
 import CommonHeader from '@/components/CommonHeader';
 import ScreenContainer from '@/components/ScreenContainer';
@@ -33,8 +34,9 @@ const LIMIT = 10;
 
 export default function OrderHistoryScreen() {
   const dispatch = useDispatch<AppDispatch>();
+  const insets = useSafeAreaInsets(); // Hook for dynamic bottom inset
 
-  const { list, loading, pagination, error } = useSelector(
+  const { list, loading, pagination } = useSelector(
     (state: RootState) => state.orderHistory,
   );
 
@@ -53,7 +55,7 @@ export default function OrderHistoryScreen() {
 
   useEffect(() => {
     loadOrders(1);
-  }, []);
+  }, [loadOrders]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -201,15 +203,18 @@ export default function OrderHistoryScreen() {
   );
 
   return (
-    <ScreenContainer style={{ backgroundColor: '#F1F5F9' }}>
-      <StatusBar barStyle="dark-content" />
+    <ScreenContainer style={{ backgroundColor: '#F8FAFC' }}>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#FFFFFF"
+        translucent={false}
+      />
       <CommonHeader
         title="Order History"
         showBack
         showCart={false}
         showWallet={false}
       />
-
       <View style={styles.stickyHeader}>
         <View style={styles.searchContainer}>
           <Feather name="search" size={18} color="#94A3B8" />
@@ -259,11 +264,24 @@ export default function OrderHistoryScreen() {
           data={filteredOrders}
           keyExtractor={item => String(item.order_id)}
           renderItem={renderOrder}
-          contentContainerStyle={styles.listPadding}
+          // Fix: Applied dynamic bottom padding using insets
+          contentContainerStyle={[
+            styles.listPadding,
+            { paddingBottom: Math.max(insets.bottom, 20) + 20 },
+          ]}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListFooterComponent={
+            isMoreLoading ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.primary}
+                style={{ marginVertical: 10 }}
+              />
+            ) : null
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
@@ -283,6 +301,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: { elevation: 4 },
+    }),
   },
   searchContainer: {
     flexDirection: 'row',
@@ -317,7 +344,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 20,
     marginBottom: 16,
-    elevation: 1,
+    elevation: 2,
     overflow: 'hidden',
   },
   cardHeader: {
@@ -348,14 +375,14 @@ const styles = StyleSheet.create({
   sideNotchLeft: {
     width: 10,
     height: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC', // Matches Screen Background
     borderTopRightRadius: 10,
     borderBottomRightRadius: 10,
   },
   sideNotchRight: {
     width: 10,
     height: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC', // Matches Screen Background
     borderTopLeftRadius: 10,
     borderBottomLeftRadius: 10,
   },
@@ -379,7 +406,7 @@ const styles = StyleSheet.create({
   itemMeta: { flex: 1, gap: 4 },
   providerBox: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   providerName: { fontSize: 15, fontWeight: '800', color: '#1E293B' },
-  slotTime: { fontSize: 11, color: '#64748B' },
+  slotTime: { fontSize: 11, color: '#64748B' }, 
   digitInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   digitType: { fontSize: 12, color: '#94A3B8' },
   digitValue: { fontSize: 12, color: colors.primary, fontWeight: '800' },
@@ -396,13 +423,13 @@ const styles = StyleSheet.create({
   winText: { fontSize: 14, fontWeight: '900', color: '#16A34A' },
   costText: { fontSize: 14, fontWeight: '700', color: '#64748B' },
   cardFooter: {
-    flexDirection: 'column', // Stack vertically
-    alignItems: 'flex-start', // Align to the left
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     padding: 12,
     backgroundColor: '#F8FAFC',
     borderTopWidth: 1,
     borderColor: '#F1F5F9',
-    gap: 8, // Adds spacing between the wallet and bonus rows
+    gap: 8,
   },
   walletInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   footerText: { fontSize: 11, fontWeight: '600', color: '#64748B' },

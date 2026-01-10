@@ -119,8 +119,11 @@ export default function WithdrawalHistoryScreen({ navigation }: any) {
 
   return (
     <ScreenContainer>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
       <CommonHeader
         title="Withdrawal History"
         showBack
