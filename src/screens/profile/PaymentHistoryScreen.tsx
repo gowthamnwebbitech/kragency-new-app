@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  Animated,
+  Easing,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import ReAnimated, { FadeInDown } from 'react-native-reanimated';
 import { useDispatch, useSelector } from 'react-redux';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import CommonHeader from '@/components/CommonHeader';
 import ScreenContainer from '@/components/ScreenContainer';
@@ -24,9 +26,55 @@ import { PaymentHistoryItem } from '@/features/paymentHistory/paymentHistoryType
 
 const LIMIT = 15;
 
+/* ================= SKELETON COMPONENT ================= */
+const Skeleton = ({ style }: { style: any }) => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+      ]),
+    ).start();
+  }, [opacity]);
+
+  return <Animated.View style={[styles.skeletonBase, style, { opacity }]} />;
+};
+
+const TransactionSkeleton = () => (
+  <View style={styles.listContent}>
+    <Skeleton style={{ width: 120, height: 14, marginBottom: 20, marginTop: 10, borderRadius: 4 }} />
+    {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+      <View key={i} style={styles.card}>
+        <Skeleton style={styles.iconWrapper} />
+        <View style={styles.content}>
+          <Skeleton style={{ width: '60%', height: 16, borderRadius: 4, marginBottom: 8 }} />
+          <Skeleton style={{ width: '40%', height: 12, borderRadius: 4 }} />
+        </View>
+        <View style={styles.amountSide}>
+          <Skeleton style={{ width: 60, height: 16, borderRadius: 4, marginBottom: 6 }} />
+          <Skeleton style={{ width: 40, height: 10, borderRadius: 4 }} />
+        </View>
+      </View>
+    ))}
+  </View>
+);
+
+/* ================= MAIN COMPONENT ================= */
 export default function PaymentHistoryScreen({ navigation }: any) {
   const dispatch = useDispatch<AppDispatch>();
-  const insets = useSafeAreaInsets(); // 🛡️ Get safe area dimensions
+  const insets = useSafeAreaInsets();
 
   const { list, loading, pagination } = useSelector(
     (state: RootState) => state.paymentHistory,
@@ -72,7 +120,8 @@ export default function PaymentHistoryScreen({ navigation }: any) {
 
   /* ================= HELPERS ================= */
   const getTransactionUI = (item: PaymentHistoryItem) => {
-    const isDebit = item.type?.toLowerCase() === 'debit';
+    const type = item.type?.toLowerCase();
+    const isDebit = type === 'debit' || type === 'withdrawal';
     const isWinning = item.description?.toLowerCase().includes('winning');
 
     if (isDebit) {
@@ -126,7 +175,7 @@ export default function PaymentHistoryScreen({ navigation }: any) {
     const isDebit = ui.sign === '-';
 
     return (
-      <Animated.View
+      <ReAnimated.View
         entering={FadeInDown.delay(index * 30).springify()}
         style={styles.card}
       >
@@ -158,7 +207,7 @@ export default function PaymentHistoryScreen({ navigation }: any) {
             {item.type?.toUpperCase()}
           </Text>
         </View>
-      </Animated.View>
+      </ReAnimated.View>
     );
   };
 
@@ -177,29 +226,26 @@ export default function PaymentHistoryScreen({ navigation }: any) {
       />
 
       {loading && page === 1 ? (
-        <View style={styles.centerLoader}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loaderText}>Loading transactions...</Text>
-        </View>
+        <TransactionSkeleton />
       ) : (
         <FlatList
           data={list}
           keyExtractor={(item, index) => `tx-${item.id || index}`}
           renderItem={renderItem}
-          // 🛡️ DYNAMIC BOTTOM PADDING: ensures content isn't hidden by gesture bars
           contentContainerStyle={[
             styles.listContent,
-            { paddingBottom: Math.max(insets.bottom, 20) + 20 } 
+            { paddingBottom: Math.max(insets.bottom, 20) + 20 }
           ]}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            <Text style={styles.sectionHeader}>Recent Activity</Text>
+            list.length > 0 ? <Text style={styles.sectionHeader}>Recent Activity</Text> : null
           }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
               tintColor={colors.primary}
+              colors={[colors.primary]}
             />
           }
           onEndReached={handleLoadMore}
@@ -227,6 +273,10 @@ export default function PaymentHistoryScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
+  /* SKELETON */
+  skeletonBase: {
+    backgroundColor: '#F1F5F9',
+  },
   listContent: {
     paddingHorizontal: 20,
     paddingTop: 10,
@@ -245,7 +295,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9', // Slightly more visible than F8FAFC
+    borderBottomColor: '#F1F5F9',
   },
   iconWrapper: {
     width: 44,
@@ -291,17 +341,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '800',
     marginTop: 4,
-  },
-  centerLoader: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loaderText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#64748B',
-    fontWeight: '500',
   },
   emptyContainer: {
     alignItems: 'center',

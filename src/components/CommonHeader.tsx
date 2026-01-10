@@ -6,6 +6,7 @@ import {
   Image,
   TouchableOpacity,
   StatusBar,
+  Platform,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { useNavigation } from '@react-navigation/native';
@@ -15,6 +16,9 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withSequence,
+  withRepeat,
+  withTiming,
+  Easing,
 } from 'react-native-reanimated';
 
 import Logo from '@/assets/logo/logo.png';
@@ -29,6 +33,33 @@ interface Props {
   showCart?: boolean;
 }
 
+/* ================= WALLET SKELETON ================= */
+const WalletSkeleton = () => {
+  const opacity = useSharedValue(0.3);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.7, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.3, { duration: 600, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, [opacity]);
+
+  const skeletonStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View style={[styles.walletPill, skeletonStyle, { width: 80, height: 35, justifyContent: 'center' }]}>
+      <View style={{ height: 10, backgroundColor: '#E2E8F0', borderRadius: 4, width: '80%', alignSelf: 'center' }} />
+    </Animated.View>
+  );
+};
+
+/* ================= MAIN HEADER ================= */
 export default function CommonHeader({
   title,
   showBack = false,
@@ -38,33 +69,32 @@ export default function CommonHeader({
   const navigation = useNavigation<any>();
   const dispatch = useDispatch<AppDispatch>();
 
-  /** 1. Move ALL selectors to the very top with safe fallbacks */
+  // Selectors
   const auth = useSelector((state: RootState) => state.auth);
   const walletState = useSelector((state: RootState) => state.wallet);
   const cartState = useSelector((state: RootState) => state.cart);
 
-  // Derived values for easier use
   const token = auth?.token;
   const isAuthenticated = !!token;
   const wallet = walletState?.data;
+  const isWalletLoading = walletState?.loading;
   
-  // Prevent "Cannot read property 'items' of undefined" error
   const cartItems = cartState?.items || [];
   const cartCount = cartItems.length;
 
-  /** 2. Shared Values for Animation */
+  // Animation Shared Values
   const springConfig = { damping: 12, stiffness: 200, mass: 0.8 };
   const walletScale = useSharedValue(1);
   const cartScale = useSharedValue(1);
 
-  /** 3. Data Fetching Logic */
+  // Fetch Wallet Data
   useEffect(() => {
     if (isAuthenticated && showWallet) {
       dispatch(fetchWalletThunk());
     }
   }, [dispatch, showWallet, isAuthenticated]);
 
-  /** 4. Wallet Animation Trigger */
+  // Wallet Update Animation
   useEffect(() => {
     if (isAuthenticated && showWallet && wallet?.wallet_balance) {
       walletScale.value = withSequence(
@@ -74,7 +104,7 @@ export default function CommonHeader({
     }
   }, [wallet?.wallet_balance, wallet?.bonus_balance, isAuthenticated]);
 
-  /** 5. Cart Animation Trigger */
+  // Cart Update Animation
   useEffect(() => {
     if (isAuthenticated && showCart && cartCount > 0) {
       cartScale.value = withSequence(
@@ -123,29 +153,34 @@ export default function CommonHeader({
 
         {/* 👉 RIGHT SECTION */}
         <View style={styles.sectionRight}>
-          {/* 💰 WALLET PILL (Visible only if Logged In) */}
-          {isAuthenticated && showWallet && wallet && (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => navigation.navigate('Wallet')}
-            >
-              <Animated.View style={[styles.walletPill, walletAnimatedStyle]}>
-                <View style={styles.balanceRow}>
-                  <Text style={styles.currencySymbol}>₹</Text>
-                  <Text style={styles.balanceText}>
-                    {wallet.wallet_balance}
-                  </Text>
-                </View>
-                {parseFloat(wallet.bonus_balance || '0') > 0 && (
-                  <Text style={styles.bonusText}>
-                    +{wallet.bonus_balance} Bonus
-                  </Text>
-                )}
-              </Animated.View>
-            </TouchableOpacity>
+          
+          {/* 💰 WALLET SECTION */}
+          {isAuthenticated && showWallet && (
+            isWalletLoading ? (
+              <WalletSkeleton />
+            ) : wallet ? (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('Wallet')}
+              >
+                <Animated.View style={[styles.walletPill, walletAnimatedStyle]}>
+                  <View style={styles.balanceRow}>
+                    <Text style={styles.currencySymbol}>₹</Text>
+                    <Text style={styles.balanceText}>
+                      {wallet.wallet_balance}
+                    </Text>
+                  </View>
+                  {parseFloat(wallet.bonus_balance || '0') > 0 && (
+                    <Text style={styles.bonusText}>
+                      +{wallet.bonus_balance} Bonus
+                    </Text>
+                  )}
+                </Animated.View>
+              </TouchableOpacity>
+            ) : null
           )}
 
-          {/* 🛒 CART ICON (Visible only if Logged In) */}
+          {/* 🛒 CART ICON */}
           {isAuthenticated && showCart && (
             <TouchableOpacity
               onPress={() => navigation.navigate('Cart')}
@@ -162,7 +197,7 @@ export default function CommonHeader({
             </TouchableOpacity>
           )}
 
-          {/* 🔓 LOGIN BUTTON (Visible only if Logged Out) */}
+          {/* 🔓 LOGIN BUTTON */}
           {!isAuthenticated && (
             <TouchableOpacity
               style={styles.loginBtn}
@@ -183,6 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
+    paddingTop: Platform.OS === 'ios' ? 40 : 0, // Better safe area for headers
   },
   container: {
     height: 65,

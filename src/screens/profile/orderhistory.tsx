@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  useRef,
+} from 'react';
 import {
   View,
   Text,
@@ -11,12 +17,14 @@ import {
   RefreshControl,
   ScrollView,
   Platform,
+  Animated,
+  Easing,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useDispatch, useSelector } from 'react-redux';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // Fix for bottom spacing
+import ReAnimated, { FadeInDown } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import CommonHeader from '@/components/CommonHeader';
 import ScreenContainer from '@/components/ScreenContainer';
@@ -32,9 +40,35 @@ import {
 type FilterStatus = 'ALL' | 'WON' | 'LOST' | 'PENDING';
 const LIMIT = 10;
 
+/* ================= SKELETON COMPONENT ================= */
+const Skeleton = ({ style }: { style: any }) => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+      ]),
+    ).start();
+  }, [opacity]);
+
+  return <Animated.View style={[styles.skeletonBase, style, { opacity }]} />;
+};
+
 export default function OrderHistoryScreen() {
   const dispatch = useDispatch<AppDispatch>();
-  const insets = useSafeAreaInsets(); // Hook for dynamic bottom inset
+  const insets = useSafeAreaInsets();
 
   const { list, loading, pagination } = useSelector(
     (state: RootState) => state.orderHistory,
@@ -117,6 +151,77 @@ export default function OrderHistoryScreen() {
     };
   };
 
+  /* ================= RENDER SKELETON STATE ================= */
+  const renderSkeleton = () => (
+    <View style={styles.listPadding}>
+      {[1, 2, 3].map(i => (
+        <View key={i} style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.headerLeft}>
+              <Skeleton style={{ width: 80, height: 18, borderRadius: 4 }} />
+              <Skeleton style={{ width: 100, height: 14, marginTop: 5 }} />
+            </View>
+            <View style={styles.headerRight}>
+              <Skeleton style={{ width: 60, height: 25 }} />
+            </View>
+          </View>
+          <View style={styles.dashedContainer}>
+            <View style={styles.sideNotchLeft} />
+            <View style={styles.dashLine} />
+            <View style={styles.sideNotchRight} />
+          </View>
+          <View style={styles.itemsContainer}>
+            <Skeleton style={{ width: '100%', height: 60, borderRadius: 14 }} />
+          </View>
+          <View style={styles.cardFooter}>
+            <Skeleton style={{ width: '70%', height: 12 }} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+
+  /* ================= NEW EMPTY STATE DESIGN ================= */
+  const renderEmptyState = () => {
+    const isFiltered = searchText !== '' || activeFilter !== 'ALL';
+
+    return (
+      <View style={styles.emptyContainer}>
+        <View style={styles.emptyIconCircle}>
+          <Feather
+            name={isFiltered ? 'search' : 'shopping-bag'}
+            size={45}
+            color={colors.primary}
+          />
+        </View>
+        <Text style={styles.emptyTitle}>
+          {isFiltered ? 'No Results Found' : 'No Orders Yet'}
+        </Text>
+        <Text style={styles.emptySubTitle}>
+          {isFiltered
+            ? "We couldn't find any orders matching your filters. Try adjusting your search."
+            : "It looks like you haven't placed any orders yet. Start playing to see your history here!"}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.emptyBtn}
+          onPress={() => {
+            if (isFiltered) {
+              setSearchText('');
+              setActiveFilter('ALL');
+            } else {
+              // Navigate to Home or Play Screen
+            }
+          }}
+        >
+          <Text style={styles.emptyBtnText}>
+            {isFiltered ? 'Clear Filters' : 'Start Playing'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderOrder = ({
     item,
     index,
@@ -124,7 +229,10 @@ export default function OrderHistoryScreen() {
     item: OrderHistoryOrder;
     index: number;
   }) => (
-    <Animated.View entering={FadeInDown.delay(index * 50)} style={styles.card}>
+    <ReAnimated.View
+      entering={FadeInDown.delay(index * 50)}
+      style={styles.card}
+    >
       <View style={styles.cardHeader}>
         <View style={styles.headerLeft}>
           <View style={styles.dateBadge}>
@@ -199,7 +307,7 @@ export default function OrderHistoryScreen() {
           </View>
         )}
       </View>
-    </Animated.View>
+    </ReAnimated.View>
   );
 
   return (
@@ -215,6 +323,7 @@ export default function OrderHistoryScreen() {
         showCart={false}
         showWallet={false}
       />
+
       <View style={styles.stickyHeader}>
         <View style={styles.searchContainer}>
           <Feather name="search" size={18} color="#94A3B8" />
@@ -256,23 +365,25 @@ export default function OrderHistoryScreen() {
       </View>
 
       {loading && page === 1 ? (
-        <View style={styles.loader}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        renderSkeleton()
       ) : (
         <FlatList
           data={filteredOrders}
           keyExtractor={item => String(item.order_id)}
           renderItem={renderOrder}
-          // Fix: Applied dynamic bottom padding using insets
           contentContainerStyle={[
             styles.listPadding,
-            { paddingBottom: Math.max(insets.bottom, 20) + 20 },
+            { flexGrow: 1, paddingBottom: Math.max(insets.bottom, 20) + 20 },
           ]}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
           }
           ListFooterComponent={
             isMoreLoading ? (
@@ -283,12 +394,7 @@ export default function OrderHistoryScreen() {
               />
             ) : null
           }
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Feather name="file-text" size={40} color="#CBD5E1" />
-              <Text style={styles.emptyTitle}>No Orders Found</Text>
-            </View>
-          }
+          ListEmptyComponent={!loading ? renderEmptyState : null}
         />
       )}
     </ScreenContainer>
@@ -296,6 +402,7 @@ export default function OrderHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  skeletonBase: { backgroundColor: '#E2E8F0' },
   stickyHeader: {
     backgroundColor: '#FFF',
     paddingVertical: 12,
@@ -375,14 +482,14 @@ const styles = StyleSheet.create({
   sideNotchLeft: {
     width: 10,
     height: 20,
-    backgroundColor: '#F8FAFC', // Matches Screen Background
+    backgroundColor: '#F8FAFC',
     borderTopRightRadius: 10,
     borderBottomRightRadius: 10,
   },
   sideNotchRight: {
     width: 10,
     height: 20,
-    backgroundColor: '#F8FAFC', // Matches Screen Background
+    backgroundColor: '#F8FAFC',
     borderTopLeftRadius: 10,
     borderBottomLeftRadius: 10,
   },
@@ -406,7 +513,7 @@ const styles = StyleSheet.create({
   itemMeta: { flex: 1, gap: 4 },
   providerBox: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   providerName: { fontSize: 15, fontWeight: '800', color: '#1E293B' },
-  slotTime: { fontSize: 11, color: '#64748B' }, 
+  slotTime: { fontSize: 11, color: '#64748B' },
   digitInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   digitType: { fontSize: 12, color: '#94A3B8' },
   digitValue: { fontSize: 12, color: colors.primary, fontWeight: '800' },
@@ -440,7 +547,46 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   bonusText: { fontSize: 10, fontWeight: '700', color: '#7C3AED' },
-  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyState: { alignItems: 'center', marginTop: 100, gap: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#94A3B8' },
+
+  /* EMPTY STATE STYLES */
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyIconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1E293B',
+    marginBottom: 8,
+  },
+  emptySubTitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  emptyBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    elevation: 2,
+  },
+  emptyBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
 });

@@ -1,12 +1,13 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   StatusBar,
-  ActivityIndicator,
   RefreshControl,
+  Animated,
+  Easing,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { useDispatch, useSelector } from 'react-redux';
@@ -17,6 +18,53 @@ import colors from '@/theme/colors';
 import { AppDispatch, RootState } from '@/app/store';
 import { fetchWithdrawHistoryThunk } from '@/features/withdrawHistory/withdrawHistoryThunk';
 
+/* ================= SKELETON COMPONENT ================= */
+const Skeleton = ({ style }: { style: any }) => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+      ]),
+    ).start();
+  }, [opacity]);
+
+  return <Animated.View style={[styles.skeletonBase, style, { opacity }]} />;
+};
+
+const WithdrawHistorySkeleton = () => (
+  <View style={styles.listContent}>
+    {[1, 2, 3, 4, 5].map((i) => (
+      <View key={i} style={styles.card}>
+        <View style={styles.cardHeader}>
+          <Skeleton style={styles.skeletonDate} />
+          <Skeleton style={styles.skeletonBadge} />
+        </View>
+        <View style={styles.cardBody}>
+          <View>
+            <Skeleton style={styles.skeletonLabel} />
+            <Skeleton style={styles.skeletonAmount} />
+          </View>
+          <Skeleton style={styles.skeletonTime} />
+        </View>
+      </View>
+    ))}
+  </View>
+);
+
+/* ================= MAIN COMPONENT ================= */
 export default function WithdrawalHistoryScreen({ navigation }: any) {
   const dispatch = useDispatch<AppDispatch>();
 
@@ -37,7 +85,7 @@ export default function WithdrawalHistoryScreen({ navigation }: any) {
   }, [dispatch]);
 
   const getStatusUI = (status?: string) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'approved':
         return {
           label: 'Approved',
@@ -118,7 +166,7 @@ export default function WithdrawalHistoryScreen({ navigation }: any) {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer style={styles.whiteBg}>
       <StatusBar
         barStyle="dark-content"
         backgroundColor="transparent"
@@ -134,34 +182,29 @@ export default function WithdrawalHistoryScreen({ navigation }: any) {
       {/* ❌ ERROR */}
       {!loading && error && <Text style={styles.errorText}>{error}</Text>}
 
-      {/* 📄 LIST */}
-      <FlatList
-        data={list}
-        keyExtractor={item => item.id.toString()}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={loading}
-            onRefresh={onRefresh}
-            colors={[colors.primary]} // Android
-            tintColor={colors.primary} // iOS
-          />
-        }
-        ListEmptyComponent={
-          !loading && !error ? (
-            <Text style={styles.emptyText}>No withdrawal history found</Text>
-          ) : null
-        }
-      />
-
-      {/* 🔄 INITIAL LOADER */}
-      {loading && list.length === 0 && (
-        <ActivityIndicator
-          size="large"
-          color={colors.primary}
-          style={{ marginTop: 40 }}
+      {/* 📄 LIST OR SKELETON */}
+      {loading && list.length === 0 ? (
+        <WithdrawHistorySkeleton />
+      ) : (
+        <FlatList
+          data={list}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            !loading && !error ? (
+              <Text style={styles.emptyText}>No withdrawal history found</Text>
+            ) : null
+          }
         />
       )}
     </ScreenContainer>
@@ -169,6 +212,40 @@ export default function WithdrawalHistoryScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
+  whiteBg: {
+    backgroundColor: '#FFFFFF',
+  },
+  /* SKELETON STYLES */
+  skeletonBase: {
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
+  },
+  skeletonDate: {
+    width: 100,
+    height: 14,
+  },
+  skeletonBadge: {
+    width: 80,
+    height: 22,
+    borderRadius: 8,
+  },
+  skeletonLabel: {
+    width: 110,
+    height: 12,
+    marginBottom: 6,
+  },
+  skeletonAmount: {
+    width: 90,
+    height: 24,
+  },
+  skeletonTime: {
+    width: 50,
+    height: 18,
+    borderRadius: 6,
+    alignSelf: 'flex-end',
+  },
+
+  /* ACTUAL UI STYLES */
   listContent: {
     padding: 20,
     paddingBottom: 40,
@@ -186,15 +263,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   card: {
-    backgroundColor: colors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: colors.shadow,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -212,7 +291,7 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.text || '#1E293B',
   },
   statusBadge: {
     flexDirection: 'row',
@@ -233,16 +312,16 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     fontSize: 12,
-    color: colors.textLight,
+    color: colors.textLight || '#64748B',
     fontWeight: '600',
   },
   amountValue: {
     fontSize: 20,
     fontWeight: '900',
-    color: colors.text,
+    color: colors.text || '#1E293B',
   },
   timeBox: {
-    backgroundColor: colors.resultBackground,
+    backgroundColor: '#F8FAFC',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -251,6 +330,6 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.textLight,
+    color: colors.textLight || '#64748B',
   },
 });

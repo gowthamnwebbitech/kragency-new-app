@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   StatusBar,
+  Animated as RNAnimated,
+  Easing,
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
@@ -25,6 +27,32 @@ import { fetchDrawResultsThunk } from '@/features/drawResult/drawResultThunk';
 import { DrawResult } from '@/features/drawResult/drawResultTypes';
 
 const PAGE_SIZE = 12;
+
+/* ================= SKELETON COMPONENT ================= */
+const Skeleton = ({ style }: { style: any }) => {
+  const opacity = useRef(new RNAnimated.Value(0.3)).current;
+
+  useEffect(() => {
+    RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(opacity, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        RNAnimated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+      ]),
+    ).start();
+  }, [opacity]);
+
+  return <RNAnimated.View style={[styles.skeletonBase, style, { opacity }]} />;
+};
 
 export default function DrawResultsScreen() {
   const dispatch = useAppDispatch();
@@ -81,6 +109,23 @@ export default function DrawResultsScreen() {
     }
   };
 
+  /* ================= RENDER SKELETON ================= */
+  const renderSkeleton = () => (
+    <View style={styles.skeletonContainer}>
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <View key={i} style={styles.card}>
+          <View style={styles.cardLeft}>
+            <Skeleton style={styles.skeletonTitle} />
+            <Skeleton style={styles.skeletonBadge} />
+          </View>
+          <View style={styles.cardRight}>
+            <Skeleton style={styles.skeletonResultCircle} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+
   const renderItem = ({ item, index }: { item: DrawResult; index: number }) => {
     const isPending = !item.drawResult;
 
@@ -89,7 +134,6 @@ export default function DrawResultsScreen() {
         entering={FadeInDown.delay(index * 30).duration(400)}
         style={styles.card}
       >
-        {/* LEFT: Game Info */}
         <View style={styles.cardLeft}>
           <Text style={styles.providerName} numberOfLines={1}>
             {item.providerName}
@@ -108,7 +152,6 @@ export default function DrawResultsScreen() {
           </View>
         </View>
 
-        {/* RIGHT: Result Container (Perfectly Centered) */}
         <View style={styles.cardRight}>
           <Animated.View
             entering={FadeInRight.delay(index * 50)}
@@ -148,10 +191,9 @@ export default function DrawResultsScreen() {
         translucent={true}
       />
       <CommonHeader
-        title="Draw Results"
+        title="Results"
         showBack
         showWallet={false}
-        // showCart={false}
       />
       <View style={styles.container}>
         {/* SEARCH SECTION */}
@@ -175,19 +217,12 @@ export default function DrawResultsScreen() {
 
         {/* HEADER LABELS */}
         <View style={styles.listHeader}>
-          <Text style={[styles.headerLabel, { flex: 1 }]}>Game Detail</Text>
-          <Text
-            style={[styles.headerLabel, { width: 70, textAlign: 'center' }]}
-          >
-            Result
-          </Text>
+          <Text style={styles.gameDetailLabel}>Game Detail</Text>
+          <Text style={styles.resultLabel}>Result</Text>
         </View>
 
-        {loading && list.length === 0 ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Syncing results...</Text>
-          </View>
+        {loading && !refreshing && list.length === 0 ? (
+          renderSkeleton()
         ) : (
           <FlatList
             data={visibleData}
@@ -202,6 +237,7 @@ export default function DrawResultsScreen() {
                 refreshing={refreshing}
                 onRefresh={onRefresh}
                 tintColor={colors.primary}
+                colors={[colors.primary]}
               />
             }
             ListEmptyComponent={
@@ -219,6 +255,12 @@ export default function DrawResultsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
+  skeletonBase: { backgroundColor: '#E2E8F0' },
+  skeletonContainer: { paddingHorizontal: 16 },
+  skeletonTitle: { width: '60%', height: 16, borderRadius: 4, marginBottom: 8 },
+  skeletonBadge: { width: '30%', height: 12, borderRadius: 4 },
+  skeletonResultCircle: { width: 48, height: 48, borderRadius: 14 },
+
   searchWrapper: {
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -248,7 +290,17 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 8,
   },
-  headerLabel: {
+  gameDetailLabel: {
+    flex: 1,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  resultLabel: {
+    width: 70,
+    textAlign: 'center',
     fontSize: 10,
     fontWeight: '800',
     color: '#94A3B8',
@@ -257,7 +309,6 @@ const styles = StyleSheet.create({
   },
   listPadding: { paddingHorizontal: 16, paddingBottom: 40 },
 
-  /* UPDATED CARD LAYOUT */
   card: {
     flexDirection: 'row',
     backgroundColor: '#FFF',
@@ -267,7 +318,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#F1F5F9',
-    // Slight shadow for depth
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -306,13 +356,10 @@ const styles = StyleSheet.create({
     borderColor: '#F1F5F9',
   },
   timeText: { fontSize: 10, color: '#64748B', fontWeight: '700' },
-
-  /* STATUSES */
   liveIndicator: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#F97316' },
   liveText: { fontSize: 9, fontWeight: '900', color: '#F97316' },
 
-  /* RESULT SQUIRCLE - Fixed Alignment */
   resultWrapper: {
     position: 'relative',
     alignItems: 'center',
@@ -345,14 +392,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 10,
     zIndex: 1,
-  },
-
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: {
-    marginTop: 10,
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
   },
   emptyContainer: { alignItems: 'center', marginTop: 60, gap: 10 },
   emptyText: { fontSize: 14, color: '#94A3B8', fontWeight: '600' },

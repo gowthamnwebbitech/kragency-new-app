@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -21,26 +23,54 @@ import ScreenContainer from '@/components/ScreenContainer';
 import colors from '@/theme/colors';
 import Toast from 'react-native-toast-message';
 
-
-// Define the API response structure
 interface OrderResponse {
   success: boolean;
   message: string;
   order_id: number;
 }
 
+const Skeleton = ({ style }: { style: any }) => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+      ]),
+    ).start();
+  }, [opacity]);
+
+  return <Animated.View style={[styles.skeletonBase, style, { opacity }]} />;
+};
+
 export default function CartScreen() {
   const dispatch = useDispatch();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { items, totalAmount } = useSelector((state: RootState) => state.cart);
+  console.log('cartitems', items);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleConfirmPay = async () => {
     if (!items.length || isSubmitting) return;
-
     setIsSubmitting(true);
-
     try {
       const payload = {
         cart: items.map(item => ({
@@ -50,47 +80,32 @@ export default function CartScreen() {
           amount: item.price * item.quantity,
         })),
       };
-
       const response = (await postApi(
         '/customer/place-order',
         payload,
       )) as OrderResponse;
-
-      /* -----------------------------
-       * SUCCESS
-       * ----------------------------- */
       if (response?.success) {
         Toast.show({
           type: 'success',
           text1: 'Order Placed',
           text2: 'Your order was placed successfully 🎉',
         });
-
         navigation.navigate('OrderSuccess', {
           orderId: response.order_id,
           amount: totalAmount,
         });
-
         dispatch(clearCart());
         return;
       }
-
-      /* -----------------------------
-       * FAIL (success = false)
-       * ----------------------------- */
       Toast.show({
         type: 'error',
         text1: 'Order Failed',
         text2: response?.message ?? 'Could not place order',
       });
     } catch (error: any) {
-      /* -----------------------------
-       * API ERROR (400 / 500)
-       * ----------------------------- */
       const message =
         error?.response?.data?.message ||
         'Something went wrong. Please try again.';
-
       Toast.show({
         type: 'error',
         text1: 'Transaction Failed',
@@ -101,6 +116,72 @@ export default function CartScreen() {
     }
   };
 
+  /* ================= MODERN EMPTY STATE ================= */
+  const renderEmptyCart = () => (
+    <View style={styles.emptyContainer}>
+      <View style={styles.emptyIconCircle}>
+        <View style={styles.emptyIconPulse}>
+          <Icon name="ticket-percent" size={50} color={colors.primary} />
+        </View>
+      </View>
+      <Text style={styles.emptyTitle}>No Tickets Found</Text>
+      <Text style={styles.emptySubTitle}>
+        Your cart is empty. Choose your lucky numbers and start playing to win
+        the next jackpot!
+      </Text>
+      <TouchableOpacity
+        style={styles.browseBtn}
+        onPress={() =>
+          navigation.reset({
+            index: 0,
+            routes: [
+              {
+                name: 'MainTabs',
+                params: {
+                  screen: 'Home',
+                },
+              },
+            ],
+          })
+        }
+      >
+        <Text style={styles.browseText}>Start Playing</Text>
+        <Icon name="play-circle" size={20} color="#FFF" />
+      </TouchableOpacity>
+    </View>
+  );
+
+  /* ================= RENDER SKELETON LIST ================= */
+  const renderSkeletonState = () => (
+    <View style={styles.listScroll}>
+      {[1, 2, 3].map(key => (
+        <View key={key} style={styles.ticketCard}>
+          <View style={styles.cardHeader}>
+            <View style={styles.gameInfo}>
+              <Skeleton style={styles.skeletonIcon} />
+              <View style={styles.skeletonTextGap}>
+                <Skeleton style={styles.skeletonTitle} />
+                <Skeleton style={styles.skeletonSub} />
+              </View>
+            </View>
+          </View>
+          <View style={styles.ViewiderWrapper}>
+            <View style={styles.leftPunch} />
+            <View style={styles.dashedLine} />
+            <View style={styles.rightPunch} />
+          </View>
+          <View style={styles.cardBody}>
+            <View style={styles.statRow}>
+              <Skeleton style={styles.skeletonStat} />
+              <Skeleton style={styles.skeletonStat} />
+              <Skeleton style={styles.skeletonStat} />
+            </View>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+
   const renderItem = ({ item }: { item: any }) => (
     <View style={styles.ticketCard}>
       <View style={styles.cardHeader}>
@@ -110,9 +191,7 @@ export default function CartScreen() {
           </View>
           <View>
             <Text style={styles.gameNameText}>{item.gameName}</Text>
-            <Text style={styles.providerSubText}>
-              {item.provider || '3D JACKPOT'}
-            </Text>
+            <Text style={styles.providerSubText}>{item.provider}</Text>
           </View>
         </View>
         <TouchableOpacity
@@ -123,7 +202,7 @@ export default function CartScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.dividerWrapper}>
+      <View style={styles.ViewiderWrapper}>
         <View style={styles.leftPunch} />
         <View style={styles.dashedLine} />
         <View style={styles.rightPunch} />
@@ -151,7 +230,7 @@ export default function CartScreen() {
   );
 
   return (
-    <ScreenContainer style={{ backgroundColor: '#F8FAFC' }}>
+    <ScreenContainer>
       <StatusBar
         barStyle="dark-content"
         backgroundColor="#FFFFFF"
@@ -159,23 +238,22 @@ export default function CartScreen() {
       />
       <CommonHeader title="My Cart" showBack showCart={false} />
 
-      <FlatList
-        data={items}
-        keyExtractor={item => item.cartId}
-        renderItem={renderItem}
-        contentContainerStyle={[
-          styles.listScroll,
-          { paddingBottom: 120 + insets.bottom },
-        ]}
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Icon name="cart-off" size={60} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>Cart is empty</Text>
-          </View>
-        }
-      />
+      {isLoading ? (
+        renderSkeletonState()
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={item => item.cartId}
+          renderItem={renderItem}
+          contentContainerStyle={[
+            styles.listScroll,
+            { flexGrow: 1, paddingBottom: 120 + insets.bottom },
+          ]}
+          ListEmptyComponent={renderEmptyCart}
+        />
+      )}
 
-      {items.length > 0 && (
+      {items.length > 0 && !isLoading && (
         <View
           style={[
             styles.compactFooter,
@@ -212,6 +290,13 @@ export default function CartScreen() {
 
 const styles = StyleSheet.create({
   listScroll: { padding: 16 },
+  skeletonBase: { backgroundColor: '#E2E8F0', borderRadius: 4 },
+  skeletonIcon: { width: 36, height: 36, borderRadius: 18 },
+  skeletonTextGap: { gap: 6 },
+  skeletonTitle: { width: 120, height: 14 },
+  skeletonSub: { width: 80, height: 10 },
+  skeletonStat: { width: 60, height: 25, borderRadius: 6 },
+
   ticketCard: {
     backgroundColor: '#FFF',
     borderRadius: 16,
@@ -242,7 +327,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dividerWrapper: { flexDirection: 'row', alignItems: 'center', height: 20 },
+  ViewiderWrapper: { flexDirection: 'row', alignItems: 'center', height: 20 },
   leftPunch: {
     width: 20,
     height: 20,
@@ -276,6 +361,57 @@ const styles = StyleSheet.create({
   numberText: { fontSize: 13, fontWeight: '900', color: '#4F46E5' },
   valueText: { fontSize: 14, fontWeight: '800', color: '#334155' },
   amountText: { fontSize: 15, fontWeight: '900', color: '#0F172A' },
+
+  /* EMPTY STATE STYLES */
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    marginTop: 40,
+  },
+  emptyIconCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emptyIconPulse: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#E0E7FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1E293B',
+    marginBottom: 8,
+  },
+  emptySubTitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 32,
+  },
+  browseBtn: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 10,
+    elevation: 4,
+  },
+  browseText: { color: '#FFF', fontSize: 16, fontWeight: '900' },
+
   compactFooter: {
     position: 'absolute',
     bottom: 0,
@@ -303,11 +439,4 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   payText: { color: '#FFF', fontSize: 14, fontWeight: '900' },
-  emptyWrap: { flex: 1, alignItems: 'center', marginTop: 100 },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#CBD5E1',
-    marginTop: 10,
-  },
 });

@@ -62,6 +62,9 @@ export const fetchGames = createAsyncThunk<
       if (!res.gameSlots || typeof res.gameSlots !== 'object') {
         return rejectWithValue('Invalid games response');
       }
+      
+// Get the provider name from the root of the response
+      const providerName = res.betting_provider_name || "PROVIDER";
 
       // Filter only games for this slotTimeId
       const groups: GameGroup[] = Object.entries(res.gameSlots)
@@ -82,6 +85,7 @@ export const fetchGames = createAsyncThunk<
             price,
             winAmount,
             digits: filteredItems,
+            betting_provider_name: providerName,
           };
         })
         .filter(Boolean) as GameGroup[];

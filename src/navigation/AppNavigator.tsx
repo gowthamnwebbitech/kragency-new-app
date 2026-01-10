@@ -1,4 +1,3 @@
-// AppNavigator.tsx
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import BottomTabNavigator from './BottomTabNavigator';
 import SlotScreen from '@/screens/slot/SlotScreen';

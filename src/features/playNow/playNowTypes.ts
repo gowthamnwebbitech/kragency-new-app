@@ -1,18 +1,4 @@
-/* ========= SLOT API ========= */
-
-export interface SlotApiItem {
-  slot_time: string; // "10:00:00"
-  slot_time_id: number;
-}
-
-export interface SlotApiResponse {
-  success: boolean;
-  close_minutes: number;
-  slots: SlotApiItem[];
-}
-
-/* ========= GAME API ========= */
-
+/* ========= SHARED / SUB-INTERFACES ========= */
 export interface DigitMaster {
   id: number;
   name: string;
@@ -27,16 +13,33 @@ export interface ProviderSlot {
 export interface GameSlotItem {
   id: number;
   slot_time_id: number;
+  slot_time: string; // Added because fetchSlots uses game.slot_time
   digit_master: DigitMaster;
   provider_slot: ProviderSlot;
 }
 
+/* ========= API RESPONSES ========= */
+
+export interface SlotApiResponse {
+  success: boolean;
+  betting_provider_id: string;
+  betting_provider_name: string; // From your JSON
+  close_minutes: number;
+  show_slot: number;
+  slot_time_id: string;
+  // Note: Your JSON shows gameSlots as the primary data container
+  gameSlots: Record<string, GameSlotItem[]>; 
+}
+
 export interface GameApiResponse {
   success: boolean;
+  betting_provider_id: string;
+  betting_provider_name: string; // Crucial for showing provider name
+  close_minutes: number;
   gameSlots: Record<string, GameSlotItem[]>;
 }
 
-/* ========= UI ========= */
+/* ========= UI STATE MODELS ========= */
 
 export interface SlotUI {
   slot_time: string;
@@ -47,7 +50,7 @@ export interface SlotUI {
 export interface GameGroup {
   title: string;
   price: number;
-  provider: string;
+  betting_provider_name: string;
   winAmount: number;
   digits: GameSlotItem[];
 }

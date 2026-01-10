@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import {
   View,
   Text,
@@ -7,7 +13,8 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
-  ActivityIndicator,
+  Easing,
+  RefreshControl, // Added
 } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import Carousel from 'react-native-reanimated-carousel';
@@ -21,8 +28,7 @@ import { RootState, AppDispatch } from '@/app/store';
 import { fetchHomeGames } from '@/features/home/homeThunk';
 
 const { width } = Dimensions.get('window');
-// Calculate width for 2 columns with 16px padding and 12px gap
-const GRID_CARD_WIDTH = (width - (16 * 2) - 12) / 2;
+const GRID_CARD_WIDTH = (width - 16 * 2 - 12) / 2;
 
 const TRUST = [
   { id: 1, title: 'Trusted', desc: 'Thousands of users', icon: 'shield' },
@@ -31,9 +37,38 @@ const TRUST = [
   { id: 4, title: '24/7 Help', desc: 'Always online', icon: 'headphones' },
 ];
 
+/* ================= SKELETON COMPONENT ================= */
+const Skeleton = ({ style }: { style: any }) => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.7,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+      ]),
+    ).start();
+  }, [opacity]);
+
+  return <Animated.View style={[styles.skeletonBase, style, { opacity }]} />;
+};
+
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const dispatch = useDispatch<AppDispatch>();
+
+  // Local state for refresh control
+  const [refreshing, setRefreshing] = useState(false);
 
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
   const { banners, featuredGames, loading } = useSelector(
@@ -42,6 +77,18 @@ export default function HomeScreen() {
 
   useEffect(() => {
     dispatch(fetchHomeGames());
+  }, [dispatch]);
+
+  /* ================= REFRESH LOGIC ================= */
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await dispatch(fetchHomeGames()).unwrap();
+    } catch (error) {
+      console.error('Refresh failed:', error);
+    } finally {
+      setRefreshing(false);
+    }
   }, [dispatch]);
 
   /* ================= ANIMATIONS ================= */
@@ -60,7 +107,7 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
-    if (featuredGames?.length) {
+    if (!loading && featuredGames?.length) {
       const featuredAnims = featuredAnimations.map((anim, index) =>
         Animated.parallel([
           Animated.timing(anim.opacity, {
@@ -90,7 +137,7 @@ export default function HomeScreen() {
 
       Animated.stagger(100, [...featuredAnims, ...trustAnims]).start();
     }
-  }, [featuredGames]);
+  }, [loading, featuredGames]);
 
   const handlePlayPress = (providerId: number) => {
     if (!isAuthenticated) {
@@ -100,112 +147,167 @@ export default function HomeScreen() {
     }
   };
 
+  /* ================= RENDER SKELETON STATE ================= */
+  const renderLoadingState = () => (
+    <View style={styles.content}>
+      <View style={styles.bannerBtn}>
+        <Skeleton style={styles.bannerSkeleton} />
+      </View>
+      <SectionHeader title="Featured Games" />
+      <View style={styles.featuredGrid}>
+        {[1, 2, 3, 4].map(i => (
+          <View key={i} style={styles.gridCard}>
+            <Skeleton style={styles.imageContainer} />
+            <View style={styles.cardFooter}>
+              <View style={styles.skeletonTextContainer}>
+                <Skeleton style={styles.skeletonTitleLine} />
+                <Skeleton style={styles.skeletonSubLine} />
+              </View>
+              <Skeleton style={styles.miniPlayBtn} />
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+
   return (
     <ScreenContainer>
-      <CommonHeader
-        showCart={isAuthenticated}
-        showWallet={isAuthenticated}
-      />
+      <CommonHeader showCart={isAuthenticated} showWallet={isAuthenticated} />
 
-      {loading ? (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : (
-        <Animated.ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.content}
-        >
-          {/* 🎞 Banner Section */}
-          {banners?.length > 0 && (
-            <View style={styles.bannerWrapper}>
-              <Carousel
-                width={width}
-                height={width * 0.48}
-                data={banners}
-                autoPlay
-                loop
-                autoPlayInterval={4000}
-                renderItem={({ item }) => (
-                  <TouchableOpacity activeOpacity={0.9} style={styles.bannerBtn}>
-                    <Image source={{ uri: item.image }} style={styles.bannerImage} />
-                  </TouchableOpacity>
-                )}
-              />
+      <Animated.ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]} // Android
+            tintColor={colors.primary} // iOS
+          />
+        }
+      >
+        {loading && !refreshing ? (
+          renderLoadingState()
+        ) : (
+          <>
+            {/* 🎞 Banner Section */}
+            {banners?.length > 0 && (
+              <View style={styles.bannerWrapper}>
+                <Carousel
+                  width={width}
+                  height={width * 0.48}
+                  data={banners}
+                  autoPlay
+                  loop
+                  autoPlayInterval={4000}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      style={styles.bannerBtn}
+                    >
+                      <Image
+                        source={{ uri: item.image }}
+                        style={styles.bannerImage}
+                      />
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            )}
+
+            <SectionHeader title="Featured Games" showViewAll />
+
+            <View style={styles.featuredGrid}>
+              {featuredGames?.map((item, index) => {
+                const anim = featuredAnimations[index];
+                if (!anim) return null;
+                return (
+                  <Animated.View
+                    key={item.id}
+                    style={[
+                      styles.gridCard,
+                      {
+                        opacity: anim.opacity,
+                        transform: [{ scale: anim.scale }],
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => handlePlayPress(item.providerId)}
+                    >
+                      <View style={styles.imageContainer}>
+                        <Image
+                          source={{ uri: item.logo }}
+                          style={styles.cardImage}
+                        />
+                        <View style={styles.liveBadge}>
+                          <View style={styles.liveDot} />
+                          <Text style={styles.liveText}>LIVE</Text>
+                        </View>
+                      </View>
+                      <View style={styles.cardFooter}>
+                        <View style={styles.cardInfo}>
+                          <Text style={styles.cardName} numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          <Text style={styles.cardTime}>
+                            {item?.time ?? 'Closing soon'}
+                          </Text>
+                        </View>
+                        <View style={styles.miniPlayBtn}>
+                          <Feather
+                            name="play"
+                            size={12}
+                            color="#FFF"
+                            fill="#FFF"
+                          />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </Animated.View>
+                );
+              })}
             </View>
-          )}
 
-          <SectionHeader title="Featured Games" showViewAll />
-          
-          <View style={styles.featuredGrid}>
-            {featuredGames?.map((item, index) => {
-              const anim = featuredAnimations[index];
-              if (!anim) return null;
-
-              return (
+            {/* 🛡 Trust Section */}
+            <SectionHeader title="Why Choose Us" />
+            <View style={styles.trustGrid}>
+              {TRUST.map((item, index) => (
                 <Animated.View
                   key={item.id}
                   style={[
-                    styles.gridCard,
-                    {
-                      opacity: anim.opacity,
-                      transform: [{ scale: anim.scale }],
-                    },
+                    styles.trustCard,
+                    { opacity: trustAnimations[index]?.opacity || 1 },
                   ]}
                 >
-                  <TouchableOpacity 
-                    activeOpacity={0.8} 
-                    onPress={() => handlePlayPress(item.providerId)}
-                  >
-                    <View style={styles.imageContainer}>
-                      <Image source={{ uri: item.logo }} style={styles.cardImage} />
-                      <View style={styles.liveBadge}>
-                        <View style={styles.liveDot} />
-                        <Text style={styles.liveText}>LIVE</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.cardFooter}>
-                      <View style={styles.cardInfo}>
-                        <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
-                        <Text style={styles.cardTime}>{item?.time ?? 'Closing soon'}</Text>
-                      </View>
-                      <View style={styles.miniPlayBtn}>
-                         <Feather name="play" size={12} color="#FFF" fill="#FFF" />
-                      </View>
-                    </View>
-                  </TouchableOpacity>
+                  <View style={styles.trustIcon}>
+                    <Feather
+                      name={item.icon}
+                      size={20}
+                      color={colors.primary}
+                    />
+                  </View>
+                  <Text style={styles.trustTitle}>{item.title}</Text>
+                  <Text style={styles.trustDesc}>{item.desc}</Text>
                 </Animated.View>
-              );
-            })}
-          </View>
-
-          {/* 🛡 Trust Section */}
-          <SectionHeader title="Why Choose Us" />
-          <View style={styles.trustGrid}>
-            {TRUST.map((item, index) => (
-              <Animated.View
-                key={item.id}
-                style={[
-                  styles.trustCard,
-                  { opacity: trustAnimations[index].opacity },
-                ]}
-              >
-                <View style={styles.trustIcon}>
-                  <Feather name={item.icon} size={20} color={colors.primary} />
-                </View>
-                <Text style={styles.trustTitle}>{item.title}</Text>
-                <Text style={styles.trustDesc}>{item.desc}</Text>
-              </Animated.View>
-            ))}
-          </View>
-        </Animated.ScrollView>
-      )}
+              ))}
+            </View>
+          </>
+        )}
+      </Animated.ScrollView>
     </ScreenContainer>
   );
 }
 
-const SectionHeader = ({ title, showViewAll }: { title: string, showViewAll?: boolean }) => (
+const SectionHeader = ({
+  title,
+  showViewAll,
+}: {
+  title: string;
+  showViewAll?: boolean;
+}) => (
   <View style={styles.sectionHeader}>
     <View>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -220,10 +322,17 @@ const SectionHeader = ({ title, showViewAll }: { title: string, showViewAll?: bo
 );
 
 const styles = StyleSheet.create({
-  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { paddingBottom: 40 },
-  
-  // Banner
+  skeletonBase: { backgroundColor: '#E2E8F0' },
+  bannerSkeleton: {
+    width: '100%',
+    height: width * 0.48,
+    borderRadius: 20,
+    marginTop: 16,
+  },
+  skeletonTextContainer: { flex: 1 },
+  skeletonTitleLine: { width: '80%', height: 14, borderRadius: 4 },
+  skeletonSubLine: { width: '50%', height: 10, borderRadius: 4, marginTop: 6 },
   bannerWrapper: { marginTop: 16 },
   bannerBtn: { paddingHorizontal: 16 },
   bannerImage: {
@@ -232,8 +341,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#E2E8F0',
   },
-
-  // Headers
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -251,8 +358,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   viewAllText: { fontSize: 13, fontWeight: '700', color: colors.primary },
-
-  // Featured Grid (1 Row, 2 Cards)
   featuredGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -264,12 +369,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderRadius: 20,
     overflow: 'hidden',
-    // Premium Shadow
+    elevation: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 3,
   },
   imageContainer: {
     width: '100%',
@@ -291,7 +395,6 @@ const styles = StyleSheet.create({
   },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' },
   liveText: { color: '#FFF', fontSize: 9, fontWeight: '900' },
-
   cardFooter: {
     padding: 12,
     flexDirection: 'row',
@@ -309,8 +412,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Trust Grid
   trustGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -318,12 +419,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   trustCard: {
-    width: GRID_CARD_WIDTH, // Reusing card width for consistency
+    width: GRID_CARD_WIDTH,
     backgroundColor: '#FFF',
     borderRadius: 18,
     padding: 16,
     alignItems: 'center',
     borderWidth: 1,
+    elevation: 1,
     borderColor: '#F1F5F9',
   },
   trustIcon: {
