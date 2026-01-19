@@ -32,7 +32,6 @@ export default function App() {
       <SafeAreaProvider style={{ backgroundColor: '#FFF' }}>
         <AppBootstrap />
 
-        {/* 🔔 GLOBAL TOAST */}
         <Toast
           config={toastConfig}
           position="top"

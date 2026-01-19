@@ -1,8 +1,14 @@
-import axios from 'axios';
+import axios, {
+  AxiosError,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { store } from '@/app/store';
 import { ENV } from '@/env';
 import { logout } from '@/features/auth/authSlice';
+
+/* ================= AXIOS INSTANCE ================= */
 
 export const axiosClient = axios.create({
   baseURL: ENV.API_BASE_URL,
@@ -13,49 +19,74 @@ export const axiosClient = axios.create({
   },
 });
 
+/* ================= REQUEST INTERCEPTOR ================= */
+
 axiosClient.interceptors.request.use(
-  async config => {
+  async (config: InternalAxiosRequestConfig) => {
     const reduxToken = store.getState().auth.token;
     const storageToken = await AsyncStorage.getItem('authToken');
     const token = reduxToken || storageToken;
 
     if (token) {
-      config.headers = {
-        ...config.headers,
-        Authorization: `Bearer ${token}`,
-      };
+      config.headers.set('Authorization', `Bearer ${token}`);
     }
 
-    console.log(
-      '➡️',
-      config.method?.toUpperCase(),
-      config.url
-    );
+    // attach metadata safely
+    (config as any).metadata = { startTime: Date.now() };
+
+    if (__DEV__) {
+      console.groupCollapsed(
+        `➡️ REQUEST ${config.method?.toUpperCase()} ${config.url}`
+      );
+      console.log('Base URL:', config.baseURL);
+      console.log('Headers:', {
+        Authorization: token ? 'Bearer ***' : undefined,
+      });
+      console.log('Params:', config.params);
+      console.log('Body:', config.data);
+      console.groupEnd();
+    }
 
     return config;
   },
   error => Promise.reject(error)
 );
 
-/* 🚫 RESPONSE INTERCEPTOR */
+/* ================= RESPONSE INTERCEPTOR ================= */
+
 axiosClient.interceptors.response.use(
-  response => {
-    console.log('✅', response.config.url, response.status);
+  (response: AxiosResponse) => {
+    const duration =
+      Date.now() - (response.config as any)?.metadata?.startTime;
+
+    if (__DEV__) {
+      console.groupCollapsed(
+        `✅ RESPONSE ${response.status} ${response.config.url} (${duration}ms)`
+      );
+      console.log('Data:', response.data);
+      console.groupEnd();
+    }
+
     return response;
   },
-  async error => {
+  async (error: AxiosError) => {
     if (!error.response) {
       console.error('🌐 NETWORK ERROR — server unreachable');
       return Promise.reject(error);
     }
 
-    console.error(
-      '❌',
-      error.config?.url,
-      error.response.status
-    );
+    const { status, data } = error.response;
+    const duration =
+      Date.now() - (error.config as any)?.metadata?.startTime;
 
-    if (error.response.status === 401) {
+    console.groupCollapsed(
+      `❌ ERROR ${status} ${error.config?.url} (${duration}ms)`
+    );
+    console.error('Message:', (data as any)?.message);
+    console.error('Errors:', (data as any)?.errors);
+    console.groupEnd();
+
+    if (status === 401) {
       await AsyncStorage.multiRemove(['authToken', 'authUser']);
       store.dispatch(logout());
     }

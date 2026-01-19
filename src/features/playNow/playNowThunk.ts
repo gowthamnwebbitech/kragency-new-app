@@ -11,7 +11,6 @@ export const fetchSlots = createAsyncThunk<
 >('playNow/fetchSlots', async (providerId, { rejectWithValue }) => {
   try {
     const res = await fetchSlotsApi(providerId);
-    console.log('API response:', res);
 
     // Check if gameSlots exists
     if (!res.gameSlots || typeof res.gameSlots !== 'object') {
@@ -40,7 +39,6 @@ export const fetchSlots = createAsyncThunk<
 
     if (!slots.length) return rejectWithValue('No slots available');
 
-    console.log('Parsed slots:', slots);
     return slots;
   } catch (error) {
     console.error('[fetchSlots] ERROR:', error);

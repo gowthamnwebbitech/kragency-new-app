@@ -59,7 +59,6 @@ export default function CartScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { items, totalAmount } = useSelector((state: RootState) => state.cart);
-  console.log('cartitems', items);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 

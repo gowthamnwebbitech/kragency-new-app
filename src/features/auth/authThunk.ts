@@ -20,13 +20,7 @@ export const loginThunk = createAsyncThunk<
   { rejectValue: string }
 >('auth/login', async (data, { rejectWithValue }) => {
   try {
-    console.log('🔐 LOGIN PAYLOAD:', data);
     const res = await loginApi(data);
-    console.log('✅ LOGIN RESPONSE:', {
-      token: res.token,
-      user: res.user,
-      message: res.message,
-    });
 
     // 🔐 Persist auth
     await AsyncStorage.multiSet([
